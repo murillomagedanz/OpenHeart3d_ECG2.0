@@ -46,7 +46,9 @@ Para os primeiros experimentos, priorizar métricas de detecção e qualidade do
 
 ## Estado atual
 
-- **Etapa 2 em andamento** — [`web/`](web/README.md): protótipo estático com 12 derivações sintéticas, filtragem auditável (bruto / filtrado / diferença), detector de QRS em tempo real e coração 3D cujo movimento é comandado pelos eventos detectados. Inclui benchmark reprodutível do detector (`npm test`).
+- **Etapa 1 (parcial)** — leitor WFDB próprio com verificação de checksum, manifesto de proveniência/licença ([`web/data/`](web/data/README.md)) e registros públicos do PhysioNet (MIT-BIH, PTB-XL, LUDB) reproduzidos na frequência nativa, sem reamostragem.
+- **Etapa 2 em andamento** — [`web/`](web/README.md): protótipo estático com 12 derivações (sintéticas ou reais), filtragem auditável (bruto / filtrado / diferença), detector de QRS em tempo real e coração 3D comandado pelos eventos detectados. Benchmarks reprodutíveis (`npm test`): sintético e dados reais anotados (7842 batimentos: sens 0,989 / VPP 0,982).
+- Decisões técnicas e científicas registradas em [`docs/DECISOES.md`](docs/DECISOES.md).
 
 ## Código aberto e colaboração
 

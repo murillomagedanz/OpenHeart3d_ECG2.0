@@ -102,6 +102,13 @@ export class Heart3D {
     if (rrMean) this.rrMean = rrMean;
   }
 
+  // Esquece o histórico de eventos (troca de fonte ou reinício do registro).
+  reset() {
+    this.lastR = -Infinity;
+    this.rrMean = null;
+    this.phaseLabel = '—';
+  }
+
   // tSignal: tempo atual do sinal (s). A animação acompanha o relógio do ECG.
   update(tSignal) {
     const sinceR = tSignal - this.lastR;

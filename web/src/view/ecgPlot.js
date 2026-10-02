@@ -12,17 +12,33 @@ export class EcgPlot {
   constructor(canvas, fs) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
+    this.label = '';
+    this.setLeads({});
+    this.reset(fs);
+    this._resize();
+    new ResizeObserver(() => this._resize()).observe(canvas.parentElement);
+  }
+
+  // Reinicia os buffers (troca de fonte, de frequência de amostragem ou reinício do registro).
+  reset(fs) {
     this.fs = fs;
     this.cellLen = Math.round(CELL_SECONDS * fs);
     this.rhythmLen = Math.round(RHYTHM_SECONDS * fs);
     this.cellBuf = LEAD_NAMES.map(() => new Float32Array(this.cellLen));
     this.rhythmBuf = new Float32Array(this.rhythmLen);
     this.markers = new Uint8Array(this.rhythmLen);
+    this.refMarkers = new Uint8Array(this.rhythmLen);
     this.n = 0;
-    this.rhythmIdx = LEAD_NAMES.indexOf(RHYTHM_LEAD);
-    this.label = '';
-    this._resize();
-    new ResizeObserver(() => this._resize()).observe(canvas.parentElement);
+  }
+
+  // available: quais derivações existem na fonte; aliases: nome original do sinal
+  // (ex.: II ← MLII); rhythmLead: índice da derivação usada na tira de ritmo/detecção;
+  // hasReference: se há anotações de referência a mostrar.
+  setLeads({ available = LEAD_NAMES.map(() => true), aliases = {}, rhythmLead = LEAD_NAMES.indexOf(RHYTHM_LEAD), hasReference = false }) {
+    this.available = available;
+    this.aliases = aliases;
+    this.rhythmIdx = rhythmLead;
+    this.hasReference = hasReference;
   }
 
   _resize() {
@@ -40,12 +56,24 @@ export class EcgPlot {
     const ri = this.n % this.rhythmLen;
     this.rhythmBuf[ri] = leads[this.rhythmIdx];
     this.markers[ri] = 0;
+    this.refMarkers[ri] = 0;
     this.n++;
   }
 
   markQrs(samplesAgo) {
     const ri = (this.n - 1 - samplesAgo + this.rhythmLen * 2) % this.rhythmLen;
     this.markers[ri] = 1;
+  }
+
+  // Batimento de referência (anotação do banco de dados), desenhado na base da tira.
+  markRef(samplesAgo) {
+    const ri = (this.n - 1 - samplesAgo + this.rhythmLen * 2) % this.rhythmLen;
+    this.refMarkers[ri] = 1;
+  }
+
+  _leadLabel(name) {
+    const alias = this.aliases[name];
+    return alias ? `${name} (${alias})` : name;
   }
 
   _grid(x, y, w, h, pxPerMm) {
@@ -64,7 +92,7 @@ export class EcgPlot {
     ctx.stroke();
   }
 
-  _trace(buf, len, x, y, w, h, pxPerMm, markers) {
+  _trace(buf, len, x, y, w, h, pxPerMm, markers, refMarkers) {
     const ctx = this.ctx;
     const mid = y + h / 2;
     const pxPerMv = pxPerMm * MM_PER_MV;
@@ -87,6 +115,12 @@ export class EcgPlot {
       ctx.fillStyle = '#ffd166';
       for (let k = 0; k < count; k++) {
         if (markers[k]) ctx.fillRect(x + (k / len) * w - 1, y + 2, 2, 6);
+      }
+    }
+    if (refMarkers) {
+      ctx.fillStyle = '#4cc9f0';
+      for (let k = 0; k < count; k++) {
+        if (refMarkers[k]) ctx.fillRect(x + (k / len) * w - 1, y + h - 8, 2, 6);
       }
     }
 
@@ -117,9 +151,14 @@ export class EcgPlot {
         const li = LEAD_NAMES.indexOf(name);
         const x = pad + c * cellW; const y = pad + r * cellH;
         this._grid(x, y, cellW, cellH, pxPerMm);
-        this._trace(this.cellBuf[li], this.cellLen, x, y, cellW, cellH, pxPerMm);
-        ctx.fillStyle = '#e6edf3';
-        ctx.fillText(name, x + 6, y + 14);
+        if (this.available[li]) {
+          this._trace(this.cellBuf[li], this.cellLen, x, y, cellW, cellH, pxPerMm);
+          ctx.fillStyle = '#e6edf3';
+          ctx.fillText(this._leadLabel(name), x + 6, y + 14);
+        } else {
+          ctx.fillStyle = '#596673';
+          ctx.fillText(`${name} — sem sinal neste registro`, x + 6, y + 14);
+        }
       }
     }
 
@@ -127,9 +166,12 @@ export class EcgPlot {
     const rw = this.w - pad * 2;
     const rPxPerMm = rw / (RHYTHM_SECONDS * MM_PER_SEC);
     this._grid(pad, ry, rw, rhythmH, rPxPerMm);
-    this._trace(this.rhythmBuf, this.rhythmLen, pad, ry, rw, rhythmH, rPxPerMm, this.markers);
+    this._trace(this.rhythmBuf, this.rhythmLen, pad, ry, rw, rhythmH, rPxPerMm, this.markers, this.hasReference ? this.refMarkers : null);
     ctx.fillStyle = '#e6edf3';
-    ctx.fillText(`${RHYTHM_LEAD} — ritmo 10 s · marcas = QRS detectado`, pad + 6, ry + 14);
+    const legend = this.hasReference
+      ? 'marcas amarelas (acima) = QRS detectado · azuis (abaixo) = referência anotada no banco'
+      : 'marcas = QRS detectado';
+    ctx.fillText(`${this._leadLabel(LEAD_NAMES[this.rhythmIdx])} — ritmo 10 s · ${legend}`, pad + 6, ry + 14);
 
     ctx.fillStyle = '#8b98a5';
     ctx.font = '11px system-ui';

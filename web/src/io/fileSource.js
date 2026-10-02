@@ -18,7 +18,7 @@ export function mapSignalsToLeads(descriptions) {
     const li = std ? LEAD_NAMES.indexOf(std) : -1;
     if (li >= 0 && mapping[li] < 0) {
       mapping[li] = i;
-      if (std !== desc.trim()) aliases[std] = desc.trim();
+      if (std.toUpperCase() !== key) aliases[std] = desc.trim(); // ex.: II ← MLII; não para 'avr' → aVR
     } else {
       unmapped.push({ index: i, description: desc });
     }

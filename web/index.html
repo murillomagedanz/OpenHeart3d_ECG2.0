@@ -17,7 +17,7 @@
 <body>
   <header>
     <h1>OpenHeart3D ECG 2.0 <span class="tag">protótipo</span></h1>
-    <p class="warning">
+    <p class="warning" id="data-banner">
       DADOS SINTÉTICOS — simulação didática. Não é dispositivo médico, não realiza diagnóstico.
       A animação indica sincronização temporal com eventos elétricos detectados; não representa anatomia ou força reais.
     </p>
@@ -35,6 +35,8 @@
         <div><span class="label">RR médio</span><span id="rr-mean">—</span></div>
         <div><span class="label">Último QRS</span><span id="last-qrs">—</span></div>
         <div><span class="label">Fase estimada</span><span id="phase">—</span></div>
+        <div><span class="label">Registro</span><span id="record-status">—</span></div>
+        <div><span class="label">Referência</span><span id="ref-status">—</span></div>
       </div>
     </section>
   </main>
@@ -43,24 +45,42 @@
     <label>Fonte
       <select id="source">
         <option value="synthetic">Sintética (vetor cardíaco)</option>
+        <option value="file">Registro real (WFDB / PhysioNet)</option>
       </select>
     </label>
-    <label>FC alvo <span id="hr-val">72</span> bpm
-      <input type="range" id="hr" min="35" max="180" value="72" />
+
+    <label id="ctl-record" hidden>Registro
+      <select id="record"></select>
     </label>
-    <label>Variabilidade <span id="hrv-val">4</span>%
-      <input type="range" id="hrv" min="0" max="20" value="4" />
+    <label id="ctl-open" hidden>Abrir arquivos WFDB locais (.hea + .dat [+ anotações])
+      <input type="file" id="open-files" multiple />
     </label>
-    <label>Ruído <span id="noise-val">0.02</span> mV
-      <input type="range" id="noise" min="0" max="0.3" step="0.01" value="0.02" />
-    </label>
-    <label>Rede 60 Hz <span id="mains-val">0.00</span> mV
-      <input type="range" id="mains" min="0" max="0.3" step="0.01" value="0" />
+
+    <div id="ctl-synth" class="group">
+      <label>FC alvo <span id="hr-val">72</span> bpm
+        <input type="range" id="hr" min="35" max="180" value="72" />
+      </label>
+      <label>Variabilidade <span id="hrv-val">4</span>%
+        <input type="range" id="hrv" min="0" max="20" value="4" />
+      </label>
+      <label>Ruído <span id="noise-val">0.02</span> mV
+        <input type="range" id="noise" min="0" max="0.3" step="0.01" value="0.02" />
+      </label>
+      <label>Rede <span id="mains-val">0.00</span> mV
+        <input type="range" id="mains" min="0" max="0.3" step="0.01" value="0" />
+      </label>
+    </div>
+
+    <label>Rede elétrica (notch)
+      <select id="mains-hz">
+        <option value="60" selected>60 Hz</option>
+        <option value="50">50 Hz</option>
+      </select>
     </label>
     <label>Exibição
       <select id="view-mode">
         <option value="raw">Bruto</option>
-        <option value="filtered" selected>Filtrado (PA 0,5 Hz + notch 60 Hz)</option>
+        <option value="filtered" id="opt-filtered" selected>Filtrado (PA 0,5 Hz + notch 60 Hz)</option>
         <option value="diff">Diferença (bruto − filtrado)</option>
       </select>
     </label>
@@ -70,9 +90,15 @@
         <option value="0.5">0.5×</option>
         <option value="1" selected>1×</option>
         <option value="2">2×</option>
+        <option value="4">4×</option>
       </select>
     </label>
     <button id="pause">Pausar</button>
+
+    <details id="record-info" hidden>
+      <summary>Sobre o registro</summary>
+      <div id="record-info-body"></div>
+    </details>
   </footer>
 
   <script type="module" src="src/main.js"></script>
