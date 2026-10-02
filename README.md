@@ -2,7 +2,7 @@
 
 **Visão:** transformar o ECG em uma plataforma aberta de visualização e pesquisa de sinais cardíacos. A proposta é apresentar, em tempo real, as derivações do ECG de um paciente ao lado de um coração 3D sincronizado aos eventos elétricos observados, preservando os dados brutos para investigar informações que o processamento convencional pode atenuar ou descartar.
 
-**Idealizador:** Eng. Murillo Magedanz. **Estágio:** visão e roteiro técnico-científico; ainda não há aplicativo, modelo treinado, dispositivo integrado ou validação clínica neste repositório.
+**Idealizador:** Eng. Murillo Magedanz. **Estágio:** protótipo web de pesquisa (ver "Estado atual"); ainda não há modelo treinado, dispositivo integrado ou validação clínica neste repositório.
 
 ## O que queremos construir
 

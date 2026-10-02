@@ -1,4 +1,4 @@
-﻿*.pyc
+*.pyc
 __pycache__/
 .playwright-mcp/
 node_modules/

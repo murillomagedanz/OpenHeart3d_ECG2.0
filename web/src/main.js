@@ -248,6 +248,8 @@ ui.mainsHz.addEventListener('change', () => {
   if (state.mode === 'file') state.source.reset();
   buildPipeline(state.source.fs);
   syncParams();
+  // O painel do registro mostra o notch em uso; atualiza-o junto com o pipeline.
+  if (state.mode === 'file') renderRecordInfo(state.source.record, state.source, state.meta);
 });
 ui.source.addEventListener('change', async () => {
   if (ui.source.value === 'synthetic') { useSynthetic(); return; }

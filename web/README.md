@@ -1,4 +1,4 @@
-﻿# Protótipo web — ECG 12 derivações + coração 3D sincronizado
+# Protótipo web — ECG 12 derivações + coração 3D sincronizado
 
 Protótipo estático (HTML + ES modules, sem build) da etapa 2 do roteiro. Reproduz ECG **sintético** ou **registros reais de bancos públicos (PhysioNet, formato WFDB)**; em ambos os casos é o sinal que comanda a animação do coração. Não é dispositivo médico e não realiza diagnóstico.
 

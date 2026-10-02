@@ -1,15 +1,15 @@
-﻿// Fonte sintÃ©tica de ECG: um vetor cardÃ­aco (dipolo) Ã© a soma de ondas gaussianas
-// (P, Q, R, S, T) posicionadas no TEMPO em relaÃ§Ã£o a cada pico R, e projetado nas
-// 12 derivaÃ§Ãµes. Isso mantÃ©m as derivaÃ§Ãµes fisicamente relacionadas entre si, em
-// vez de 12 sinais independentes. Modelo didÃ¡tico, inspirado em McSharry et al.
-// (2003), mas com intervalos em segundos: o QRS nÃ£o se alarga com o RR, o QT
-// encurta com âˆšRR (Bazett) e o PR fica quase constante.
+// Fonte sintética de ECG: um vetor cardíaco (dipolo) é a soma de ondas gaussianas
+// (P, Q, R, S, T) posicionadas no TEMPO em relação a cada pico R, e projetado nas
+// 12 derivações. Isso mantém as derivações fisicamente relacionadas entre si, em
+// vez de 12 sinais independentes. Modelo didático, inspirado em McSharry et al.
+// (2003), mas com intervalos em segundos: o QRS não se alarga com o RR, o QT
+// encurta com √RR (Bazett) e o PR fica quase constante.
 
 import { projectDipole } from './leads.js';
 
 const TWO_PI = Math.PI * 2;
 
-// Amplitude vetorial (mV) e largura (s) de cada onda; o centro Ã© calculado por batimento.
+// Amplitude vetorial (mV) e largura (s) de cada onda; o centro é calculado por batimento.
 const SHAPES = {
   P: { a: [0.06, 0.12, 0.02], b: 0.025 },
   Q: { a: [-0.18, -0.02, 0.22], b: 0.008 },
@@ -49,7 +49,7 @@ function waveCenters(rr) {
 }
 
 export class SyntheticSource {
-  // `seed` opcional torna a sequência reprodutível (benchmarks); sem ela usa Math.random.
+  // `seed` opcional torna a sequ�ncia reprodut�vel (benchmarks); sem ela usa Math.random.
   constructor({ fs = 500, seed = null } = {}) {
     this.fs = fs;
     this.dt = 1 / fs;
@@ -59,7 +59,7 @@ export class SyntheticSource {
     this.respPhase = 0;
     this.beats = []; // instantes verdadeiros do pico R (apenas para avaliar o detector)
 
-    // Dois batimentos vizinhos bastam: P/Q do prÃ³ximo e R/S/T do anterior.
+    // Dois batimentos vizinhos bastam: P/Q do próximo e R/S/T do anterior.
     this.prev = { r: -0.4, rr: 60 / this.params.hr };
     this.beatNext = { r: 0.4, rr: 60 / this.params.hr };
   }
@@ -104,7 +104,7 @@ export class SyntheticSource {
 
     const leads = projectDipole(vec);
 
-    // FlutuaÃ§Ã£o de linha de base respiratÃ³ria (~0,25 Hz) e artefatos comuns.
+    // Flutuação de linha de base respiratória (~0,25 Hz) e artefatos comuns.
     this.respPhase += TWO_PI * 0.25 * this.dt;
     const baseline = 0.08 * Math.sin(this.respPhase);
     const mains = this.params.mainsMv * Math.sin(TWO_PI * this.params.mainsHz * this.t);

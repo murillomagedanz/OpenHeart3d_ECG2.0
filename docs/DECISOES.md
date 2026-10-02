@@ -8,7 +8,7 @@ O coração 3D reage exclusivamente a eventos detectados no ECG (QRS). Verdade-t
 
 ## 2026-10 — D2. Toda transformação é explícita e comparável
 
-Bruto, filtrado e diferença ficam disponíveis lado a lado, com os parâmetros dos filtros escritos na tela. Motivo: a pergunta de pesquisa é "o que a filtragem convencional descarta?" — isso exige ver o descartado.
+Bruto, filtrado e diferença são sempre calculados e podem ser alternados na mesma tela, com os parâmetros dos filtros escritos nela; a exibição simultânea (lado a lado) fica para o painel de análise da etapa 3. Motivo: a pergunta de pesquisa é "o que a filtragem convencional descarta?" — isso exige ver o descartado.
 
 ## 2026-10 — D3. Protótipo web estático, sem build, com dependências vendorizadas
 
