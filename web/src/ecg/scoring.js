@@ -31,12 +31,16 @@ export function matchBeats(refs, dets, toleranceS = DEFAULT_TOLERANCE_S) {
 }
 
 // Versão incremental para reprodução ao vivo: referências e detecções chegam
-// fora de ordem (a detecção tem ~125 ms de latência) e são casadas quando ambas
-// existem; o que ficar pendente além da janela vira FN (referência) ou FP (detecção).
+// fora de ordem (a detecção tem ~125 ms de latência; no search-back, até
+// 1,66 × RR) e são casadas quando ambas existem. Uma referência só vira FN
+// depois de esperar a latência máxima do detector (`maxLatencyS`, que quem
+// usa deve manter atualizada); uma detecção só vira FP depois da tolerância,
+// porque a referência chega no instante exato do batimento.
 export class OnlineScorer {
-  constructor({ toleranceS = DEFAULT_TOLERANCE_S, ignoreBeforeS = 0 } = {}) {
+  constructor({ toleranceS = DEFAULT_TOLERANCE_S, ignoreBeforeS = 0, maxLatencyS = 0.6 } = {}) {
     this.toleranceS = toleranceS;
     this.ignoreBeforeS = ignoreBeforeS;
+    this.maxLatencyS = maxLatencyS;
     this.reset();
   }
 
@@ -69,13 +73,20 @@ export class OnlineScorer {
     else this.pendingDets.push(t);
   }
 
-  // Descarta pendências antigas demais para ainda serem casadas.
+  // Descarta pendências velhas demais para ainda serem casadas. `flush(Infinity)`
+  // finaliza tudo (fim do registro).
   flush(now) {
-    const limit = now - (2 * this.toleranceS + 0.3);
-    while (this.pendingRefs.length && this.pendingRefs[0] < limit) { this.pendingRefs.shift(); this.fn++; }
-    while (this.pendingDets.length && this.pendingDets[0] < limit) { this.pendingDets.shift(); this.fp++; }
+    const grace = 2 * this.toleranceS + 0.3;
+    const refLimit = now - Math.max(this.maxLatencyS, grace);
+    const detLimit = now - grace;
+    while (this.pendingRefs.length && this.pendingRefs[0] < refLimit) { this.pendingRefs.shift(); this.fn++; }
+    while (this.pendingDets.length && this.pendingDets[0] < detLimit) { this.pendingDets.shift(); this.fp++; }
   }
 
   get sensitivity() { return this.tp + this.fn ? this.tp / (this.tp + this.fn) : null; }
   get ppv() { return this.tp + this.fp ? this.tp / (this.tp + this.fp) : null; }
+
+  snapshot() {
+    return { tp: this.tp, fp: this.fp, fn: this.fn, sensitivity: this.sensitivity, ppv: this.ppv };
+  }
 }

@@ -18,6 +18,9 @@ export class HighPass1 {
 
 export class Notch {
   constructor(fs, f0 = 60, q = 30) {
+    // Acima de fs/2 a frequência não existe no sinal amostrado e os coeficientes
+    // ficam instáveis (polos fora do círculo unitário): recusa em vez de divergir.
+    if (!(f0 > 0 && f0 < fs / 2)) throw new RangeError(`Notch em ${f0} Hz exige fs > ${2 * f0} Hz (fs = ${fs} Hz)`);
     const w0 = (2 * Math.PI * f0) / fs;
     const alpha = Math.sin(w0) / (2 * q);
     const a0 = 1 + alpha;
@@ -38,8 +41,15 @@ export class Notch {
 
 export class LeadFilterBank {
   constructor(fs, nLeads, { hpHz = 0.5, notchHz = 60 } = {}) {
-    this.description = `PA ${hpHz} Hz (1ª ordem) + notch ${notchHz} Hz (Q=30)`;
-    this.chains = Array.from({ length: nLeads }, () => [new HighPass1(fs, hpHz), new Notch(fs, notchHz)]);
+    // Registros com fs ≤ 2·f0 (ex.: 100 Hz com rede de 60 Hz) ficam sem notch, e a
+    // descrição exibida na tela diz isso em vez de fingir um filtro que não existe.
+    this.notchActive = notchHz > 0 && notchHz < fs / 2;
+    this.description = `PA ${hpHz} Hz (1ª ordem) + ` + (this.notchActive
+      ? `notch ${notchHz} Hz (Q=30)`
+      : `notch ${notchHz} Hz desativado (fs ${fs} Hz ≤ 2 × ${notchHz} Hz)`);
+    this.chains = Array.from({ length: nLeads }, () => (this.notchActive
+      ? [new HighPass1(fs, hpHz), new Notch(fs, notchHz)]
+      : [new HighPass1(fs, hpHz)]));
   }
   process(leads) {
     const out = new Float32Array(leads.length);

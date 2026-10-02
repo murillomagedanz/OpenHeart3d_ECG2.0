@@ -1,5 +1,8 @@
 // Traçado de 12 derivações em papel padrão (25 mm/s, 10 mm/mV) com varredura,
-// mais uma tira de ritmo. Os dados ficam em buffers circulares por derivação.
+// mais uma tira de ritmo. Bruto e filtrado ficam em buffers circulares por
+// derivação; o modo de exibição (bruto | filtrado | diferença) é escolhido na
+// hora de desenhar, então trocar de modo redesenha o histórico inteiro de
+// imediato, mesmo em pausa, em vez de misturar representações.
 
 import { LEAD_NAMES, LEAD_LAYOUT, RHYTHM_LEAD } from '../ecg/leads.js';
 
@@ -8,11 +11,14 @@ const RHYTHM_SECONDS = 10;
 const MM_PER_SEC = 25;
 const MM_PER_MV = 10;
 
+export const VIEW_MODES = ['raw', 'filtered', 'diff'];
+
 export class EcgPlot {
   constructor(canvas, fs) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
     this.label = '';
+    this.mode = 'filtered';
     this.setLeads({});
     this.reset(fs);
     this._resize();
@@ -24,11 +30,18 @@ export class EcgPlot {
     this.fs = fs;
     this.cellLen = Math.round(CELL_SECONDS * fs);
     this.rhythmLen = Math.round(RHYTHM_SECONDS * fs);
-    this.cellBuf = LEAD_NAMES.map(() => new Float32Array(this.cellLen));
-    this.rhythmBuf = new Float32Array(this.rhythmLen);
+    this.rawCell = LEAD_NAMES.map(() => new Float32Array(this.cellLen));
+    this.filtCell = LEAD_NAMES.map(() => new Float32Array(this.cellLen));
+    this.rawRhythm = new Float32Array(this.rhythmLen);
+    this.filtRhythm = new Float32Array(this.rhythmLen);
     this.markers = new Uint8Array(this.rhythmLen);
     this.refMarkers = new Uint8Array(this.rhythmLen);
     this.n = 0;
+  }
+
+  setMode(mode) {
+    if (!VIEW_MODES.includes(mode)) throw new RangeError(`Modo de exibição desconhecido: ${mode}`);
+    this.mode = mode;
   }
 
   // available: quais derivações existem na fonte; aliases: nome original do sinal
@@ -50,14 +63,26 @@ export class EcgPlot {
     this.w = r.width; this.h = r.height;
   }
 
-  push(leads) {
+  // raw e filtered: Float32Array(12) em mV da mesma amostra.
+  push(raw, filtered) {
     const ci = this.n % this.cellLen;
-    for (let i = 0; i < leads.length; i++) this.cellBuf[i][ci] = leads[i];
+    for (let i = 0; i < raw.length; i++) {
+      this.rawCell[i][ci] = raw[i];
+      this.filtCell[i][ci] = filtered[i];
+    }
     const ri = this.n % this.rhythmLen;
-    this.rhythmBuf[ri] = leads[this.rhythmIdx];
+    this.rawRhythm[ri] = raw[this.rhythmIdx];
+    this.filtRhythm[ri] = filtered[this.rhythmIdx];
     this.markers[ri] = 0;
     this.refMarkers[ri] = 0;
     this.n++;
+  }
+
+  // Valor a desenhar no modo atual, a partir dos pares bruto/filtrado.
+  _sample(rawBuf, filtBuf, k) {
+    if (this.mode === 'raw') return rawBuf[k];
+    if (this.mode === 'diff') return rawBuf[k] - filtBuf[k];
+    return filtBuf[k];
   }
 
   markQrs(samplesAgo) {
@@ -92,7 +117,7 @@ export class EcgPlot {
     ctx.stroke();
   }
 
-  _trace(buf, len, x, y, w, h, pxPerMm, markers, refMarkers) {
+  _trace(rawBuf, filtBuf, len, x, y, w, h, pxPerMm, markers, refMarkers) {
     const ctx = this.ctx;
     const mid = y + h / 2;
     const pxPerMv = pxPerMm * MM_PER_MV;
@@ -106,7 +131,7 @@ export class EcgPlot {
     for (let k = 0; k < count; k++) {
       if (k === head) { started = false; continue; }
       const px = x + (k / len) * w;
-      const py = mid - buf[k] * pxPerMv;
+      const py = mid - this._sample(rawBuf, filtBuf, k) * pxPerMv;
       if (!started) { ctx.moveTo(px, py); started = true; } else ctx.lineTo(px, py);
     }
     ctx.stroke();
@@ -152,7 +177,7 @@ export class EcgPlot {
         const x = pad + c * cellW; const y = pad + r * cellH;
         this._grid(x, y, cellW, cellH, pxPerMm);
         if (this.available[li]) {
-          this._trace(this.cellBuf[li], this.cellLen, x, y, cellW, cellH, pxPerMm);
+          this._trace(this.rawCell[li], this.filtCell[li], this.cellLen, x, y, cellW, cellH, pxPerMm);
           ctx.fillStyle = '#e6edf3';
           ctx.fillText(this._leadLabel(name), x + 6, y + 14);
         } else {
@@ -166,7 +191,7 @@ export class EcgPlot {
     const rw = this.w - pad * 2;
     const rPxPerMm = rw / (RHYTHM_SECONDS * MM_PER_SEC);
     this._grid(pad, ry, rw, rhythmH, rPxPerMm);
-    this._trace(this.rhythmBuf, this.rhythmLen, pad, ry, rw, rhythmH, rPxPerMm, this.markers, this.hasReference ? this.refMarkers : null);
+    this._trace(this.rawRhythm, this.filtRhythm, this.rhythmLen, pad, ry, rw, rhythmH, rPxPerMm, this.markers, this.hasReference ? this.refMarkers : null);
     ctx.fillStyle = '#e6edf3';
     const legend = this.hasReference
       ? 'marcas amarelas (acima) = QRS detectado · azuis (abaixo) = referência anotada no banco'

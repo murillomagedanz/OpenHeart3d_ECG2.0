@@ -52,6 +52,14 @@ export class QrsDetector {
     return m ? 60 / m : null;
   }
 
+  // Limite superior do atraso entre o pico R e a emissão do evento: a janela
+  // candidata com os filtros (~0,25 s) ou, no search-back, 1,66 × RR médio.
+  // Quem pontua ao vivo usa isso para não declarar FN cedo demais.
+  get maxLatency() {
+    const m = this.rrMean;
+    return Math.max(0.6, (m ? this.searchBackFactor * m : 0) + this.candidateMax + 0.15);
+  }
+
   _updateThreshold() {
     this.threshold = this.noiseLevel + 0.3 * (this.signalLevel - this.noiseLevel);
   }

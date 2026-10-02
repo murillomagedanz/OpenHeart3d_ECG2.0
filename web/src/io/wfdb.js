@@ -147,7 +147,20 @@ function readAdcStream(buffer, format, byteOffset) {
 }
 
 // `files`: objeto { nomeDoArquivo: ArrayBuffer } com os .dat referenciados no cabeçalho.
-// Retorna sinais em unidades físicas (Float32Array) e os valores ADC brutos (Int32Array).
+// Fator que leva a unidade declarada no cabeçalho a milivolts; null se desconhecida.
+// O pipeline inteiro (papel 10 mm/mV, filtros, detector) trabalha em mV.
+export function unitsToMv(units) {
+  switch ((units || 'mV').trim().replace('µ', 'u').toLowerCase()) {
+    case 'mv': case 'millivolt': case 'millivolts': return 1;
+    case 'uv': case 'microvolt': case 'microvolts': return 1e-3;
+    case 'v': case 'volt': case 'volts': return 1e3;
+    case 'nv': return 1e-6;
+    default: return null;
+  }
+}
+
+// Retorna sinais em mV (Float32Array), os valores ADC brutos (Int32Array), a
+// contagem de amostras inválidas e, por sinal, a unidade declarada e o fator usado.
 export function decodeSignals(header, files) {
   const byFile = new Map();
   header.signals.forEach((s, i) => {
@@ -158,6 +171,11 @@ export function decodeSignals(header, files) {
   const physical = new Array(header.nSig).fill(null);
   const adc = new Array(header.nSig).fill(null);
   const missing = new Array(header.nSig).fill(0);
+  const units = header.signals.map((s) => {
+    const scale = unitsToMv(s.units);
+    // Unidade desconhecida (ex.: mmHg, NU): mantém o valor declarado e avisa; não é tensão.
+    return { declared: s.units, scaleToMv: scale ?? 1, known: scale !== null };
+  });
 
   for (const [file, idxs] of byFile) {
     const buffer = files[file];
@@ -170,6 +188,7 @@ export function decodeSignals(header, files) {
     idxs.forEach((sigIdx, k) => {
       const s = header.signals[sigIdx];
       const sentinel = invalidSampleValue(s.format);
+      const scale = units[sigIdx].scaleToMv / s.gain;
       const raw = new Int32Array(n);
       const phys = new Float32Array(n);
       for (let j = 0; j < n; j++) {
@@ -180,14 +199,14 @@ export function decodeSignals(header, files) {
           phys[j] = NaN;
           missing[sigIdx]++;
         } else {
-          phys[j] = (v - s.baseline) / s.gain;
+          phys[j] = (v - s.baseline) * scale;
         }
       }
       adc[sigIdx] = raw;
       physical[sigIdx] = phys;
     });
   }
-  return { physical, adc, missing };
+  return { physical, adc, missing, units };
 }
 
 // Soma de 16 bits de todos os valores ADC, comparada ao checksum do cabeçalho.
@@ -252,11 +271,11 @@ export function parseAnnotations(buffer) {
 // headerText: conteúdo do .hea; files: { nome: ArrayBuffer }; annotations: ArrayBuffer ou null.
 export function loadRecord({ headerText, files, annotations = null }) {
   const header = parseHeader(headerText);
-  const { physical, adc, missing } = decodeSignals(header, files);
+  const { physical, adc, missing, units } = decodeSignals(header, files);
   const checksums = verifyChecksums(header, adc);
   const anns = annotations ? parseAnnotations(annotations) : [];
   const beats = anns.filter((a) => BEAT_SYMBOLS.has(a.symbol)).map((a) => a.sample);
   const nSamples = physical[0] ? physical[0].length : 0;
   const missingTotal = missing.reduce((sum, n) => sum + n, 0);
-  return { header, signals: physical, adc, missing, missingTotal, checksums, annotations: anns, beats, nSamples, duration: nSamples / header.fs };
+  return { header, signals: physical, adc, units, missing, missingTotal, checksums, annotations: anns, beats, nSamples, duration: nSamples / header.fs };
 }

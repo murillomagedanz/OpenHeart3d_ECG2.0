@@ -33,6 +33,7 @@ const state = {
   mode: 'synthetic', source: null, filters: null, detector: null, scorer: null,
   detectionLead: LEAD_NAMES.indexOf('II'), nextBeat: 0, scoredUntil: Infinity,
   signalTime: 0, lastQrsT: null, meta: null,
+  lastPass: null, // escore fechado da última reprodução completa do registro
 };
 let manifest = null;
 
@@ -47,7 +48,7 @@ function buildPipeline(fs) {
   state.lastQrsT = null;
   state.nextBeat = 0;
   if (state.scorer) state.scorer.reset();
-  ui.filteredOption.textContent = `Filtrado (PA 0,5 Hz + notch ${state.mainsHz} Hz)`;
+  ui.filteredOption.textContent = `Filtrado (PA 0,5 Hz + notch ${state.mainsHz} Hz${state.filters.notchActive ? '' : ' desativado: fs baixa'})`;
 }
 
 function useSynthetic() {
@@ -55,6 +56,7 @@ function useSynthetic() {
   state.mode = 'synthetic';
   state.meta = null;
   state.scorer = null;
+  state.lastPass = null;
   state.scoredUntil = Infinity;
   state.source = new SyntheticSource({ fs: SYNTH_FS });
   state.detectionLead = LEAD_NAMES.indexOf('II');
@@ -76,6 +78,7 @@ function useRecord(record, meta) {
   state.detectionLead = src.detectionLead;
   if (meta.mainsHz) { state.mainsHz = meta.mainsHz; ui.mainsHz.value = String(meta.mainsHz); }
   state.scorer = src.beats.length ? new OnlineScorer({ toleranceS: DEFAULT_TOLERANCE_S, ignoreBeforeS: SCORER_WARMUP_S }) : null;
+  state.lastPass = null;
   // Bancos como o LUDB não anotam o ciclo incompleto do fim: não pontuar detecções depois disso.
   state.scoredUntil = src.beats.length ? src.beats.at(-1) / src.fs + DEFAULT_TOLERANCE_S : Infinity;
   plot.setLeads({ available: src.available, aliases: src.aliases, rhythmLead: src.detectionLead, hasReference: src.beats.length > 0 });
@@ -212,7 +215,13 @@ function renderRecordInfo(record, src, meta) {
   rows.push(row('Registro', `${h.name} · ${h.fs} Hz · ${record.nSamples} amostras · ${record.duration.toFixed(1)} s · ${h.nSig} sinal(is)`));
   const mapped = LEAD_NAMES.map((n, i) => (src.available[i] ? (src.aliases[n] ? `${n}←${src.aliases[n]}` : n) : null)).filter(Boolean);
   rows.push(row('Derivações', mapped.join(', ') + (src.unmapped.length ? ` · não mapeados: ${src.unmapped.map((u) => u.description).join(', ')}` : '')));
-  rows.push(row('Detecção', `${LEAD_NAMES[src.detectionLead]}${src.aliases[LEAD_NAMES[src.detectionLead]] ? ` (${src.aliases[LEAD_NAMES[src.detectionLead]]})` : ''} · notch ${state.mainsHz} Hz`));
+  rows.push(row('Detecção', `${LEAD_NAMES[src.detectionLead]}${src.aliases[LEAD_NAMES[src.detectionLead]] ? ` (${src.aliases[LEAD_NAMES[src.detectionLead]]})` : ''} · ${state.filters.description}`));
+  const nonMv = record.units.map((u, i) => ({ u, name: h.signals[i].description || `sinal ${i}` })).filter(({ u }) => u.declared !== 'mV' || !u.known);
+  if (nonMv.length) {
+    rows.push(row('Unidades', nonMv.map(({ u, name }) => (u.known
+      ? `${name}: ${u.declared} → mV (×${u.scaleToMv})`
+      : `${name}: "${u.declared}" DESCONHECIDA — exibida sem conversão; a escala em mV não vale para este sinal`)).join(' · ')));
+  }
   if (meta.datasetLabels) rows.push(row('Rótulos do banco (não são inferências deste software)', meta.datasetLabels));
   if (h.comments.length) rows.push(row('Comentários do cabeçalho', h.comments.join(' · ')));
   if (record.beats.length) {
@@ -237,7 +246,10 @@ function renderRecordInfo(record, src, meta) {
 // --- Controles ----------------------------------------------------------------------
 
 for (const el of [ui.hr, ui.hrv, ui.noise, ui.mains]) el.addEventListener('input', syncParams);
-ui.viewMode.addEventListener('change', () => { state.viewMode = ui.viewMode.value; });
+ui.viewMode.addEventListener('change', () => {
+  state.viewMode = ui.viewMode.value;
+  plot.setMode(state.viewMode); // o traçado guarda bruto e filtrado: redesenha o histórico no novo modo
+});
 ui.speed.addEventListener('change', () => { state.speed = Number(ui.speed.value); });
 ui.pause.addEventListener('click', () => {
   state.paused = !state.paused;
@@ -284,7 +296,13 @@ const viewLabels = () => ({
 function step() {
   const src = state.source;
   if (state.mode === 'file' && src.done) {
-    // Fim do registro: recomeça do zero, com filtros e detector zerados (como uma nova reprodução).
+    // Fim do registro: fecha a contagem (referências ainda à espera viram FN,
+    // detecções sem par viram FP), guarda o resultado da passagem completa e
+    // recomeça do zero, com filtros e detector zerados (como uma nova reprodução).
+    if (state.scorer) {
+      state.scorer.flush(Infinity);
+      state.lastPass = state.scorer.snapshot();
+    }
     src.reset();
     buildPipeline(src.fs);
     return;
@@ -296,13 +314,7 @@ function step() {
   // O detector vê apenas o sinal; nunca os instantes verdadeiros do gerador nem as anotações.
   const ev = state.detector.process(filtered[state.detectionLead], s.t);
 
-  let shown = filtered;
-  if (state.viewMode === 'raw') shown = s.leads;
-  else if (state.viewMode === 'diff') {
-    shown = new Float32Array(s.leads.length);
-    for (let i = 0; i < shown.length; i++) shown[i] = s.leads[i] - filtered[i];
-  }
-  plot.push(shown);
+  plot.push(s.leads, filtered);
 
   if (state.mode === 'file') {
     while (state.nextBeat < src.beats.length && src.beats[state.nextBeat] <= s.index) {
@@ -318,7 +330,11 @@ function step() {
     plot.markQrs(Math.round((s.t - ev.t) * src.fs));
     if (state.scorer && ev.t <= state.scoredUntil) state.scorer.addDet(ev.t);
   }
-  state.scorer?.flush(s.t);
+  if (state.scorer) {
+    // Uma referência só vira FN depois do pior atraso possível do detector (search-back).
+    state.scorer.maxLatencyS = state.detector.maxLatency;
+    state.scorer.flush(s.t);
+  }
 }
 
 let lastFrame = performance.now();
@@ -353,9 +369,15 @@ function frame(now) {
     if (state.scorer) {
       const sc = state.scorer;
       const sens = sc.sensitivity, ppv = sc.ppv;
-      ui.refStatus.textContent = `TP ${sc.tp} · FP ${sc.fp} · FN ${sc.fn}`
-        + (sens !== null && ppv !== null ? ` · sens ${(sens * 100).toFixed(0)}% · VPP ${(ppv * 100).toFixed(0)}%` : '')
+      const pct = (v) => `${(v * 100).toFixed(0)}%`;
+      let text = `TP ${sc.tp} · FP ${sc.fp} · FN ${sc.fn}`
+        + (sens !== null && ppv !== null ? ` · sens ${pct(sens)} · VPP ${pct(ppv)}` : '')
         + ` (±${DEFAULT_TOLERANCE_S * 1000} ms)`;
+      const lp = state.lastPass;
+      if (lp && lp.sensitivity !== null && lp.ppv !== null) {
+        text += ` · passagem completa anterior: sens ${pct(lp.sensitivity)} · VPP ${pct(lp.ppv)} (FN ${lp.fn}, FP ${lp.fp})`;
+      }
+      ui.refStatus.textContent = text;
     } else ui.refStatus.textContent = 'sem anotações no registro';
   } else {
     ui.recordStatus.textContent = 'sintético';

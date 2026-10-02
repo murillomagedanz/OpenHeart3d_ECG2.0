@@ -8,7 +8,7 @@ import { readFile, access } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { parseHeader, parseAnnotations, decodeSignals, verifyChecksums, loadRecord, BEAT_SYMBOLS } from '../src/io/wfdb.js';
+import { parseHeader, parseAnnotations, decodeSignals, verifyChecksums, loadRecord, unitsToMv, BEAT_SYMBOLS } from '../src/io/wfdb.js';
 import { FileSource, mapSignalsToLeads } from '../src/io/fileSource.js';
 import { matchBeats, OnlineScorer } from '../src/ecg/scoring.js';
 
@@ -147,6 +147,29 @@ test('decodeSignals: sentinela formato 212 vira NaN físico', () => {
   assert.deepEqual(missing, [1, 0]);
 });
 
+test('decodeSignals: unidades uV e V são convertidas para mV; unidade desconhecida fica sem conversão e é sinalizada', () => {
+  // Mesmo valor ADC (1000 acima da linha de base) em quatro declarações de unidade.
+  const v = new Int16Array([1000, 1000, 1000, 1000]);
+  const h = parseHeader([
+    'r 4 500 1',
+    'r.dat 16 1000(0)/mV 16 0 1000 0 0 A',
+    'r.dat 16 1000(0)/uV 16 0 1000 0 0 B',
+    'r.dat 16 1000(0)/V 16 0 1000 0 0 C',
+    'r.dat 16 1000(0)/mmHg 16 0 1000 0 0 D',
+  ].join('\n'));
+  assert.deepEqual(h.signals.map((s) => s.units), ['mV', 'uV', 'V', 'mmHg']);
+  const { physical, units } = decodeSignals(h, { 'r.dat': v.buffer });
+  assert.ok(Math.abs(physical[0][0] - 1) < 1e-6, 'mV: 1000/1000 = 1 mV');
+  assert.ok(Math.abs(physical[1][0] - 0.001) < 1e-9, 'uV: 1 uV = 0,001 mV');
+  assert.ok(Math.abs(physical[2][0] - 1000) < 1e-3, 'V: 1 V = 1000 mV');
+  assert.ok(Math.abs(physical[3][0] - 1) < 1e-6, 'desconhecida: valor declarado, sem fator');
+  assert.deepEqual(units.map((u) => u.known), [true, true, true, false]);
+  assert.deepEqual(units.map((u) => u.scaleToMv), [1, 1e-3, 1e3, 1]);
+  assert.equal(unitsToMv('µV'), 1e-3);
+  assert.equal(unitsToMv(undefined), 1);
+  assert.equal(unitsToMv('adu'), null);
+});
+
 test('parseAnnotations: SKIP, AUX, NUM/CHN e terminador', () => {
   const words = [];
   const w = (code, data) => words.push((code << 10) | (data & 0x3ff));
@@ -184,6 +207,13 @@ test('mapSignalsToLeads: MLII vira II; nomes minúsculos; registro genérico', (
   assert.deepEqual(Array.from(g.mapping.slice(0, 2)), [0, 1]);
   assert.equal(g.aliases.I, 'ECG1');
   assert.equal(g.detectionLead, 0); // sem II: usa o primeiro sinal disponível
+
+  // C1–C6 (posição do eletrodo) são as precordiais V1–V6, mesmo quando outras derivações são reconhecidas.
+  const c = mapSignalsToLeads(['I', 'II', 'III', 'aVR', 'aVL', 'aVF', 'C1', 'C2', 'C3', 'C4', 'C5', 'C6']);
+  assert.ok(c.available.every(Boolean));
+  assert.equal(c.unmapped.length, 0);
+  assert.deepEqual([c.aliases.V1, c.aliases.V6], ['C1', 'C6']);
+  assert.equal(c.aliases.I, undefined);
 });
 
 test('matchBeats e OnlineScorer concordam num caso simples', () => {

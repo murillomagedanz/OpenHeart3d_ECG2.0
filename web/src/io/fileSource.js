@@ -5,7 +5,11 @@
 
 import { LEAD_NAMES } from '../ecg/leads.js';
 
-const ALIASES = { MLII: 'II', ML2: 'II', MLI: 'I', MLIII: 'III', AVR: 'aVR', AVL: 'aVL', AVF: 'aVF' };
+const ALIASES = {
+  MLII: 'II', ML2: 'II', MLI: 'I', MLIII: 'III', AVR: 'aVR', AVL: 'aVL', AVF: 'aVF',
+  // Alguns equipamentos nomeiam as precordiais C1–C6 (posição do eletrodo); são as mesmas V1–V6.
+  C1: 'V1', C2: 'V2', C3: 'V3', C4: 'V4', C5: 'V5', C6: 'V6',
+};
 
 export function mapSignalsToLeads(descriptions) {
   const mapping = new Int32Array(LEAD_NAMES.length).fill(-1);
