@@ -1,0 +1,5 @@
+# Registros WFDB sao copias exatas do PhysioNet: nunca converter fim de linha
+web/data/records/** -text
+# Three.js vendorizado: manter como veio
+web/vendor/** -text
+

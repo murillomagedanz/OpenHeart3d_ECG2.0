@@ -2,10 +2,13 @@
 // Trabalha apenas com o sinal recebido: é ele que comanda a animação do coração.
 //
 // Etapas: passa-banda por médias móveis → derivada sobre 10 ms → quadrado →
-// integração em janela móvel (MWI). Quando a MWI cruza o limiar, abre-se uma
-// janela "candidata"; o QRS só é declarado após o pico da MWI, com o instante do
-// R tomado do máximo do sinal passa-banda. Isso introduz latência de ~60–120 ms,
-// mas evita que o limiar colapse e que ondas T sejam marcadas como QRS.
+// integração em janela móvel (MWI). Quando a MWI cruza metade do limiar, abre-se
+// uma janela "candidata" que acompanha o pico; ao fechar, ela vira QRS se tiver
+// cruzado o limiar cheio, ou fica guardada como reserva. Se passar 1,66 × RR
+// médio sem QRS, a melhor reserva é declarada (search-back do Pan–Tompkins).
+// O instante do R é o máximo em módulo do passa-banda dentro da janela, para
+// que complexos predominantemente negativos (QS, S profundo) sejam marcados
+// na deflexão dominante e não no rebote. Latência típica: ~60–130 ms.
 
 export class QrsDetector {
   constructor(fs) {
@@ -16,6 +19,7 @@ export class QrsDetector {
     this.mwiLen = Math.round(0.1 * fs);
     this.refractory = 0.22;
     this.candidateMax = 0.12;                // duração máxima da janela candidata (s)
+    this.searchBackFactor = 1.66;            // RR sem QRS que dispara o search-back
     this.groupDelay = (this.winShort - 1) / 2 / fs;
     this.noiseAlpha = 1 / (0.5 * fs);        // EMA de ruído com constante de 0,5 s
 
@@ -34,7 +38,8 @@ export class QrsDetector {
     this.rr = [];
     this.n = 0;
 
-    this.candidate = null; // { startT, endT, maxFeat, maxBp, maxBpT }
+    this.candidate = null; // { startT, endT, maxFeat, maxAbsBp, peakT, strong }
+    this.backup = null;    // melhor candidata fraca desde o último QRS
   }
 
   get rrMean() {
@@ -51,22 +56,29 @@ export class QrsDetector {
     this.threshold = this.noiseLevel + 0.3 * (this.signalLevel - this.noiseLevel);
   }
 
-  _finalize() {
-    const c = this.candidate;
-    this.candidate = null;
-    const peakT = c.maxBpT - this.groupDelay;
+  _emit(c, levelWeight, nowT, searchBack) {
+    const peakT = c.peakT - this.groupDelay;
     const rr = Number.isFinite(this.lastPeakT) ? peakT - this.lastPeakT : null;
     this.lastPeakT = peakT;
     if (rr) {
       this.rr.push(rr);
       if (this.rr.length > 8) this.rr.shift();
     }
-    this.signalLevel = 0.125 * c.maxFeat + 0.875 * this.signalLevel;
+    this.signalLevel = levelWeight * c.maxFeat + (1 - levelWeight) * this.signalLevel;
     this._updateThreshold();
-    return { t: peakT, rr, latency: c.endT - peakT };
+    this.backup = null;
+    return { t: peakT, rr, latency: nowT - peakT, searchBack };
   }
 
-  // Retorna null ou { t: instante estimado do pico R, rr, latency }.
+  _closeCandidate(nowT) {
+    const c = this.candidate;
+    this.candidate = null;
+    if (c.strong) return this._emit(c, 0.125, nowT, false);
+    if (!this.backup || c.maxFeat > this.backup.maxFeat) this.backup = c;
+    return null;
+  }
+
+  // Retorna null ou { t: instante estimado do pico R, rr, latency, searchBack }.
   process(x, t) {
     const i = this.idx;
     this.sumShort += x - this.bufShort[i % this.winShort];
@@ -95,20 +107,30 @@ export class QrsDetector {
       return null;
     }
 
+    // Search-back: muito tempo sem QRS e existe uma candidata fraca guardada.
+    const rrMean = this.rrMean;
+    if (this.backup && rrMean && t - this.lastPeakT > this.searchBackFactor * rrMean) {
+      const c = this.backup;
+      return this._emit(c, 0.25, t, true);
+    }
+
     if (this.candidate) {
       const c = this.candidate;
       if (feat > c.maxFeat) c.maxFeat = feat;
-      if (bp > c.maxBp) { c.maxBp = bp; c.maxBpT = t; }
+      if (feat > this.threshold) c.strong = true;
+      const abs = Math.abs(bp);
+      if (abs > c.maxAbsBp) { c.maxAbsBp = abs; c.peakT = t; }
       c.endT = t;
       const elapsed = t - c.startT;
       const pastPeak = feat < 0.5 * c.maxFeat && elapsed > 0.04;
-      if (pastPeak || elapsed >= this.candidateMax) return this._finalize();
+      if (pastPeak || elapsed >= this.candidateMax) return this._closeCandidate(t);
       return null;
     }
 
     const sinceLast = t - this.lastPeakT;
-    if (feat > this.threshold && sinceLast > this.refractory) {
-      this.candidate = { startT: t, endT: t, maxFeat: feat, maxBp: bp, maxBpT: t };
+    const halfThreshold = this.noiseLevel + 0.5 * (this.threshold - this.noiseLevel);
+    if (feat > halfThreshold && sinceLast > this.refractory) {
+      this.candidate = { startT: t, endT: t, maxFeat: feat, maxAbsBp: Math.abs(bp), peakT: t, strong: feat > this.threshold };
       return null;
     }
 
