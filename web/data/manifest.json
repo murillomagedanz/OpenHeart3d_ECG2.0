@@ -1,0 +1,135 @@
+{
+  "databases": {
+    "mitdb": {
+      "name": "MIT-BIH Arrhythmia Database",
+      "shortName": "MIT-BIH",
+      "version": "1.0.0",
+      "url": "https://physionet.org/content/mitdb/1.0.0/",
+      "filesBase": "https://physionet.org/files/mitdb/1.0.0/",
+      "license": "ODC-BY 1.0",
+      "mainsHz": 60,
+      "leads": "2 (MLII, V1/V2/V5) — não é um ECG de 12 derivações",
+      "citation": "Moody GB, Mark RG. The impact of the MIT-BIH Arrhythmia Database. IEEE Eng Med Biol Mag. 2001;20(3):45-50. doi:10.1109/51.932724"
+    },
+    "ptb-xl": {
+      "name": "PTB-XL, a large publicly available electrocardiography dataset",
+      "shortName": "PTB-XL",
+      "version": "1.0.3",
+      "url": "https://physionet.org/content/ptb-xl/1.0.3/",
+      "filesBase": "https://physionet.org/files/ptb-xl/1.0.3/",
+      "license": "CC BY 4.0",
+      "mainsHz": 50,
+      "leads": "12 derivações, 500 Hz, 10 s",
+      "citation": "Wagner P, Strodthoff N, Bousseljot R-D, Kreiseler D, Lunze FI, Samek W, Schaeffter T. PTB-XL, a large publicly available electrocardiography dataset. Sci Data. 2020;7:154. doi:10.1038/s41597-020-0495-6"
+    },
+    "ludb": {
+      "name": "Lobachevsky University Electrocardiography Database",
+      "shortName": "LUDB",
+      "version": "1.0.1",
+      "url": "https://physionet.org/content/ludb/1.0.1/",
+      "filesBase": "https://physionet.org/files/ludb/1.0.1/",
+      "license": "ODC-BY 1.0",
+      "mainsHz": 50,
+      "leads": "12 derivações, 500 Hz, 10 s, com limites e picos de P, QRS e T anotados por derivação",
+      "citation": "Kalyakulina AI, Yusipov II, Moskalenko VA, Nikolskiy AV, Kosonogov KA, Osipov GV, Zolotykh NY, Ivanchenko MV. LUDB: A New Open-Access Validation Tool for Electrocardiogram Delineation Algorithms. IEEE Access. 2020;8:186181-186190. doi:10.1109/ACCESS.2020.3029211"
+    }
+  },
+  "records": [
+    {
+      "id": "ptb-xl/00003_hr",
+      "db": "ptb-xl",
+      "record": "00003_hr",
+      "title": "PTB-XL 00003 — ECG normal, ritmo sinusal (12 derivações)",
+      "remoteDir": "records500/00000/",
+      "files": ["00003_hr.hea", "00003_hr.dat"],
+      "annotations": null,
+      "bundled": true,
+      "datasetLabels": "NORM (ECG normal) 100%; SR (ritmo sinusal). Laudo original: \"sinusrhythmus normales ekg\". Idade 37, sexo F.",
+      "notes": "Sem anotações de batimentos: não há referência para pontuar o detector."
+    },
+    {
+      "id": "ptb-xl/08215_hr",
+      "db": "ptb-xl",
+      "record": "08215_hr",
+      "title": "PTB-XL 08215 — fibrilação atrial normocárdica (12 derivações)",
+      "remoteDir": "records500/08000/",
+      "files": ["08215_hr.hea", "08215_hr.dat"],
+      "annotations": null,
+      "bundled": true,
+      "datasetLabels": "AFIB (fibrilação atrial) 100%. Laudo original: \"normokardes vorhofflimmern, linkstyp\". Idade 71, sexo F.",
+      "notes": "RR irregular: a contração atrial 'estimada pelo RR' do coração 3D não faz sentido fisiológico aqui — bom caso para discutir os limites do modelo."
+    },
+    {
+      "id": "ptb-xl/00286_hr",
+      "db": "ptb-xl",
+      "record": "00286_hr",
+      "title": "PTB-XL 00286 — bloqueio completo de ramo esquerdo (12 derivações)",
+      "remoteDir": "records500/00000/",
+      "files": ["00286_hr.hea", "00286_hr.dat"],
+      "annotations": null,
+      "bundled": true,
+      "datasetLabels": "CLBBB (bloqueio completo de ramo esquerdo) 100%; SR (ritmo sinusal); eixo desviado à esquerda. Laudo original: \"sinus rhythm. left axis deviation. left bundle branch block\". Idade 81, sexo F.",
+      "notes": "QRS largo: testa o detector fora da morfologia estreita do gerador sintético."
+    },
+    {
+      "id": "ludb/56",
+      "db": "ludb",
+      "record": "56",
+      "title": "LUDB 56 — ritmo sinusal, sem alterações (12 derivações + anotações P/QRS/T)",
+      "remoteDir": "data/",
+      "files": ["56.hea", "56.dat", "56.i", "56.ii", "56.iii", "56.avr", "56.avl", "56.avf", "56.v1", "56.v2", "56.v3", "56.v4", "56.v5", "56.v6"],
+      "annotations": "56.ii",
+      "bundled": true,
+      "datasetLabels": "Ritmo sinusal; eixo elétrico vertical; sem anormalidades de condução, hipertrofia ou isquemia registradas. Idade 46, sexo F.",
+      "notes": "Referência de QRS tomada do arquivo de anotações da derivação II."
+    },
+    {
+      "id": "ludb/8",
+      "db": "ludb",
+      "record": "8",
+      "title": "LUDB 8 — fibrilação atrial (12 derivações + anotações QRS/T)",
+      "remoteDir": "data/",
+      "files": ["8.hea", "8.dat", "8.i", "8.ii", "8.iii", "8.avr", "8.avl", "8.avf", "8.v1", "8.v2", "8.v3", "8.v4", "8.v5", "8.v6"],
+      "annotations": "8.ii",
+      "bundled": true,
+      "datasetLabels": "Fibrilação atrial. Idade 57, sexo F.",
+      "notes": "Sem ondas P anotadas (FA)."
+    },
+    {
+      "id": "mitdb/100",
+      "db": "mitdb",
+      "record": "100",
+      "title": "MIT-BIH 100 — 30 min, ritmo sinusal com extrassístoles (2 derivações, batimentos anotados)",
+      "remoteDir": "",
+      "files": ["100.hea", "100.dat", "100.atr"],
+      "annotations": "100.atr",
+      "bundled": true,
+      "datasetLabels": "2273 batimentos anotados: 2239 normais (N), 33 extrassístoles atriais (A), 1 ventricular (V). Idade 69, sexo M. Medicação: Aldomet, Inderal.",
+      "notes": "Registro clássico de referência para detectores de QRS; só MLII e V5 estão disponíveis."
+    },
+    {
+      "id": "mitdb/105",
+      "db": "mitdb",
+      "record": "105",
+      "title": "MIT-BIH 105 — 30 min, ruído e artefatos intensos (2 derivações, batimentos anotados)",
+      "remoteDir": "",
+      "files": ["105.hea", "105.dat", "105.atr"],
+      "annotations": "105.atr",
+      "bundled": false,
+      "datasetLabels": "Ritmo sinusal com extrassístoles ventriculares e trechos de ruído de alta amplitude. Idade 73, sexo F.",
+      "notes": "Caso difícil para detectores; baixe com `npm run fetch-data`."
+    },
+    {
+      "id": "mitdb/203",
+      "db": "mitdb",
+      "record": "203",
+      "title": "MIT-BIH 203 — 30 min, arritmias múltiplas e ruído (2 derivações, batimentos anotados)",
+      "remoteDir": "",
+      "files": ["203.hea", "203.dat", "203.atr"],
+      "annotations": "203.atr",
+      "bundled": false,
+      "datasetLabels": "Flutter/fibrilação atrial, extrassístoles ventriculares multiformes, QRS com variação de morfologia. Idade 43, sexo M.",
+      "notes": "Um dos registros mais difíceis do banco; baixe com `npm run fetch-data`."
+    }
+  ]
+}
