@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OpenHeart3D ECG 2.0 — Protótipo</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "./vendor/three/three.module.js",
+        "three/addons/": "./vendor/three/addons/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <header>
+    <h1>OpenHeart3D ECG 2.0 <span class="tag">protótipo</span></h1>
+    <p class="warning">
+      DADOS SINTÉTICOS — simulação didática. Não é dispositivo médico, não realiza diagnóstico.
+      A animação indica sincronização temporal com eventos elétricos detectados; não representa anatomia ou força reais.
+    </p>
+  </header>
+
+  <main>
+    <section id="ecg-panel">
+      <canvas id="ecg-canvas"></canvas>
+    </section>
+
+    <section id="heart-panel">
+      <div id="heart-canvas"></div>
+      <div id="heart-status">
+        <div><span class="label">FC detectada</span><span id="hr-detected">—</span></div>
+        <div><span class="label">RR médio</span><span id="rr-mean">—</span></div>
+        <div><span class="label">Último QRS</span><span id="last-qrs">—</span></div>
+        <div><span class="label">Fase estimada</span><span id="phase">—</span></div>
+      </div>
+    </section>
+  </main>
+
+  <footer id="controls">
+    <label>Fonte
+      <select id="source">
+        <option value="synthetic">Sintética (vetor cardíaco)</option>
+      </select>
+    </label>
+    <label>FC alvo <span id="hr-val">72</span> bpm
+      <input type="range" id="hr" min="35" max="180" value="72" />
+    </label>
+    <label>Variabilidade <span id="hrv-val">4</span>%
+      <input type="range" id="hrv" min="0" max="20" value="4" />
+    </label>
+    <label>Ruído <span id="noise-val">0.02</span> mV
+      <input type="range" id="noise" min="0" max="0.3" step="0.01" value="0.02" />
+    </label>
+    <label>Rede 60 Hz <span id="mains-val">0.00</span> mV
+      <input type="range" id="mains" min="0" max="0.3" step="0.01" value="0" />
+    </label>
+    <label>Exibição
+      <select id="view-mode">
+        <option value="raw">Bruto</option>
+        <option value="filtered" selected>Filtrado (PA 0,5 Hz + notch 60 Hz)</option>
+        <option value="diff">Diferença (bruto − filtrado)</option>
+      </select>
+    </label>
+    <label>Velocidade
+      <select id="speed">
+        <option value="0.25">0.25×</option>
+        <option value="0.5">0.5×</option>
+        <option value="1" selected>1×</option>
+        <option value="2">2×</option>
+      </select>
+    </label>
+    <button id="pause">Pausar</button>
+  </footer>
+
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
