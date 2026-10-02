@@ -52,24 +52,40 @@ export class FileSource {
     this.nSamples = record.nSamples;
     this.beats = record.beats; // índices de amostra das anotações de referência (pode ser vazio)
     Object.assign(this, mapSignalsToLeads(record.header.signals.map((s) => s.description)));
-    this.index = 0;
+    this.lastValidLeads = new Float32Array(LEAD_NAMES.length);
+    this.reset();
   }
 
   get duration() { return this.nSamples / this.fs; }
   get position() { return this.index / this.fs; }
   get done() { return this.index >= this.nSamples; }
 
-  reset() { this.index = 0; }
+  reset() {
+    this.index = 0;
+    this.missingSamples = 0;
+    this.lastValidLeads.fill(0);
+  }
 
-  // Retorna { t, index, leads: Float32Array(12) } em mV; derivações ausentes ficam em 0.
+  // Retorna { t, index, leads: Float32Array(12), missing } em mV; derivações ausentes ficam em 0.
   next() {
     const i = this.index;
     const leads = new Float32Array(LEAD_NAMES.length);
+    let missing = false;
     for (let l = 0; l < leads.length; l++) {
       const s = this.mapping[l];
-      if (s >= 0) leads[l] = this.record.signals[s][i];
+      if (s >= 0) {
+        const v = this.record.signals[s][i];
+        if (Number.isFinite(v)) {
+          leads[l] = v;
+          this.lastValidLeads[l] = v;
+        } else {
+          leads[l] = this.lastValidLeads[l];
+          this.missingSamples++;
+          missing = true;
+        }
+      }
     }
     this.index++;
-    return { t: i / this.fs, index: i, leads };
+    return { t: i / this.fs, index: i, leads, missing };
   }
 }

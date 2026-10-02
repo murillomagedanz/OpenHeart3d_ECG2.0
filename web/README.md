@@ -1,4 +1,4 @@
-# Protótipo web — ECG 12 derivações + coração 3D sincronizado
+﻿# Protótipo web — ECG 12 derivações + coração 3D sincronizado
 
 Protótipo estático (HTML + ES modules, sem build) da etapa 2 do roteiro. Reproduz ECG **sintético** ou **registros reais de bancos públicos (PhysioNet, formato WFDB)**; em ambos os casos é o sinal que comanda a animação do coração. Não é dispositivo médico e não realiza diagnóstico.
 
@@ -32,7 +32,7 @@ npm run bench        # só o sintético
 npm run bench:real   # só os registros reais anotados presentes em data/records/
 ```
 
-### Leitor WFDB (`tests/wfdb.test.mjs`, 16 testes)
+### Leitor WFDB (`tests/wfdb.test.mjs`, 19 testes)
 
 Cada cabeçalho WFDB traz um checksum de 16 bits por sinal e o valor da primeira amostra; os testes decodificam os registros reais e exigem que ambos batam (formatos 16 e 212), além de conferir os 2273 batimentos conhecidos do MIT-BIH 100 e a decodificação de anotações com SKIP/AUX/NUM/CHN.
 
@@ -84,7 +84,7 @@ FileSource ──────┘    (PA 0,5 Hz +        (Pan–Tompkins       (s
 - `src/ecg/filters.js` — passa-alta 1ª ordem e notch biquad (50 ou 60 Hz), por derivação, com descrição textual exibida na tela.
 - `src/ecg/detector.js` — detector de QRS em tempo real: passa-banda por médias móveis → derivada de 10 ms → quadrado → integração 100 ms → limiar adaptativo com janela candidata; search-back após 1,66 × RR; instante do R no máximo em módulo do passa-banda. Expõe RR médio e FC.
 - `src/ecg/scoring.js` — pareamento batimento a batimento (offline e incremental), janela ±150 ms.
-- `src/io/wfdb.js` — leitor WFDB: cabeçalho, sinais (formatos 16, 24, 32, 61, 80, 160, 212), anotações MIT, checksum. Sem DOM: o mesmo código roda no navegador e nos testes.
+- `src/io/wfdb.js` — leitor WFDB: cabeçalho, sinais (formatos 16, 24, 32, 61, 80, 160, 212), anotações MIT, checksum. Aplica o skew por sinal do cabeçalho e transforma as sentinelas WFDB de amostra inválida em NaN; na reprodução elas são contadas e preenchidas por retenção da última amostra válida (sample-and-hold), sem entrar nos filtros nem no detector. Sem DOM: o mesmo código roda no navegador e nos testes.
 - `src/io/fileSource.js` — reprodução do registro na frequência nativa; mapeia MLII → II, nomes em minúsculas e registros genéricos de 1–2 canais; escolhe a derivação de detecção (II, senão a primeira disponível).
 - `src/view/ecgPlot.js` — papel 25 mm/s · 10 mm/mV, varredura, células "sem sinal" para derivações ausentes, tira de ritmo com marcas de QRS detectado e de referência.
 - `src/view/heart3d.js` — coração procedural (Three.js); envelopes de contração acionados pelos eventos detectados.
@@ -98,7 +98,7 @@ FileSource ──────┘    (PA 0,5 Hz +        (Pan–Tompkins       (s
 - Registros de 2 derivações (MIT-BIH) mostram só as derivações existentes; nada é inventado para as outras células.
 - O detector marca a deflexão dominante do QRS, não necessariamente o pico R (erro sistemático de ~25 ms em QRS predominantemente negativos).
 - O gerador conhece os instantes reais do R (`source.beats`) e os registros trazem anotações; ambos existem apenas para avaliar o detector, nunca para animar o modelo.
-- Formatos WFDB multi-segmento e multi-frequência, EDF e CSV ainda não são lidos.
+- Formatos WFDB multi-segmento e multi-frequência, EDF e CSV ainda não são lidos; nos formatos suportados, o skew é aplicado e amostras inválidas (sentinelas WFDB) viram NaN, contadas e preenchidas por retenção da última amostra válida na reprodução.
 
 ## Próximos passos sugeridos
 

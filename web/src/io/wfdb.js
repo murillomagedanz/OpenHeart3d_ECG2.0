@@ -16,6 +16,25 @@ export const BEAT_SYMBOLS = new Set(['N', 'L', 'R', 'B', 'A', 'a', 'J', 'S', 'V'
 
 const SUPPORTED_FORMATS = new Set([16, 24, 32, 61, 80, 160, 212]);
 
+export function invalidSampleValue(format) {
+  switch (format) {
+    case 16:
+    case 61:
+    case 160:
+      return -32768;
+    case 80:
+      return -128;
+    case 212:
+      return -2048;
+    case 24:
+      return -(1 << 23);
+    case 32:
+      return -2147483648;
+    default:
+      return null;
+  }
+}
+
 // --- Cabeçalho -------------------------------------------------------------
 
 export function parseHeader(text) {
@@ -138,6 +157,7 @@ export function decodeSignals(header, files) {
 
   const physical = new Array(header.nSig).fill(null);
   const adc = new Array(header.nSig).fill(null);
+  const missing = new Array(header.nSig).fill(0);
 
   for (const [file, idxs] of byFile) {
     const buffer = files[file];
@@ -149,18 +169,25 @@ export function decodeSignals(header, files) {
 
     idxs.forEach((sigIdx, k) => {
       const s = header.signals[sigIdx];
+      const sentinel = invalidSampleValue(s.format);
       const raw = new Int32Array(n);
       const phys = new Float32Array(n);
       for (let j = 0; j < n; j++) {
-        const v = stream[j * idxs.length + k];
+        const streamIndex = (j + s.skew) * idxs.length + k;
+        const v = streamIndex < stream.length ? stream[streamIndex] : sentinel;
         raw[j] = v;
-        phys[j] = (v - s.baseline) / s.gain;
+        if (v === sentinel) {
+          phys[j] = NaN;
+          missing[sigIdx]++;
+        } else {
+          phys[j] = (v - s.baseline) / s.gain;
+        }
       }
       adc[sigIdx] = raw;
       physical[sigIdx] = phys;
     });
   }
-  return { physical, adc };
+  return { physical, adc, missing };
 }
 
 // Soma de 16 bits de todos os valores ADC, comparada ao checksum do cabeçalho.
@@ -225,10 +252,11 @@ export function parseAnnotations(buffer) {
 // headerText: conteúdo do .hea; files: { nome: ArrayBuffer }; annotations: ArrayBuffer ou null.
 export function loadRecord({ headerText, files, annotations = null }) {
   const header = parseHeader(headerText);
-  const { physical, adc } = decodeSignals(header, files);
+  const { physical, adc, missing } = decodeSignals(header, files);
   const checksums = verifyChecksums(header, adc);
   const anns = annotations ? parseAnnotations(annotations) : [];
   const beats = anns.filter((a) => BEAT_SYMBOLS.has(a.symbol)).map((a) => a.sample);
   const nSamples = physical[0] ? physical[0].length : 0;
-  return { header, signals: physical, adc, checksums, annotations: anns, beats, nSamples, duration: nSamples / header.fs };
+  const missingTotal = missing.reduce((sum, n) => sum + n, 0);
+  return { header, signals: physical, adc, missing, missingTotal, checksums, annotations: anns, beats, nSamples, duration: nSamples / header.fs };
 }

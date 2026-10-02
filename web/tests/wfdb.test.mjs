@@ -9,7 +9,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { parseHeader, parseAnnotations, decodeSignals, verifyChecksums, loadRecord, BEAT_SYMBOLS } from '../src/io/wfdb.js';
-import { mapSignalsToLeads } from '../src/io/fileSource.js';
+import { FileSource, mapSignalsToLeads } from '../src/io/fileSource.js';
 import { matchBeats, OnlineScorer } from '../src/ecg/scoring.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -17,6 +17,10 @@ const manifest = JSON.parse(await readFile(path.join(root, 'data', 'manifest.jso
 
 async function exists(p) {
   try { await access(p); return true; } catch { return false; }
+}
+
+function checksum16(values) {
+  return values.reduce((sum, v) => (sum + v) & 0xffff, 0);
 }
 
 async function readLocalRecord(entry) {
@@ -88,6 +92,59 @@ test('decodeSignals: formato 16 little-endian intercalado e checksum', () => {
   assert.deepEqual(Array.from(adc[0]), [10, 30]);
   assert.deepEqual(Array.from(adc[1]), [-20, -40]);
   assert.deepEqual(verifyChecksums(h, adc), [true, true]);
+});
+
+test('decodeSignals: aplica skew por sinal e marca cauda ausente', () => {
+  const sentinel = -32768;
+  const values = [10, 100, 20, 200, 30, 300];
+  const v = new Int16Array(values);
+  const c0 = checksum16([10, 20, 30]);
+  const c1 = checksum16([200, 300, sentinel]);
+  const h = parseHeader(`r 2 500 3\nr.dat 16 100(0)/mV 16 0 10 ${c0} 0 I\nr.dat 16:1 100(0)/mV 16 0 200 ${c1} 0 II`);
+  const { adc, physical, missing } = decodeSignals(h, { 'r.dat': v.buffer });
+  assert.deepEqual(Array.from(adc[0]), [10, 20, 30]);
+  assert.deepEqual(Array.from(adc[1]), [200, 300, sentinel]);
+  assert.deepEqual(Array.from(physical[1].slice(0, 2)), [2, 3]);
+  assert.ok(Number.isNaN(physical[1][2]));
+  assert.deepEqual(missing, [0, 1]);
+  assert.deepEqual(verifyChecksums(h, adc), [true, true]);
+});
+
+test('decodeSignals/FileSource: sentinela formato 16 vira NaN e playback faz sample-and-hold', () => {
+  const headerText = 'r 1 500 3\nr.dat 16 100(0)/mV 16 0 100 0 0 I';
+  const v = new Int16Array([100, -32768, 120]);
+  const rec = loadRecord({ headerText, files: { 'r.dat': v.buffer } });
+  assert.deepEqual(Array.from(rec.adc[0]), [100, -32768, 120]);
+  assert.equal(rec.signals[0][0], 1);
+  assert.ok(Number.isNaN(rec.signals[0][1]));
+  assert.ok(Math.abs(rec.signals[0][2] - 1.2) < 1e-6);
+  assert.deepEqual(rec.missing, [1]);
+  assert.equal(rec.missingTotal, 1);
+
+  const source = new FileSource(rec);
+  const first = source.next();
+  const second = source.next();
+  assert.equal(first.leads[0], 1);
+  assert.equal(first.missing, false);
+  assert.equal(second.leads[0], 1);
+  assert.equal(second.missing, true);
+  assert.equal(source.missingSamples, 1);
+  assert.ok(Number.isFinite(second.leads[0]));
+});
+
+test('decodeSignals: sentinela formato 212 vira NaN físico', () => {
+  const bytes = new Uint8Array(3);
+  const pack = (i, a, b) => {
+    a &= 0xfff; b &= 0xfff;
+    bytes[i] = a & 0xff; bytes[i + 1] = ((a >> 8) & 0x0f) | ((b >> 8) << 4); bytes[i + 2] = b & 0xff;
+  };
+  pack(0, -2048, 5);
+  const h = parseHeader('r 2 360 1\nr.dat 212 200 12 0 -2048 0 0 I\nr.dat 212 200 12 0 5 0 0 II');
+  const { adc, physical, missing } = decodeSignals(h, { 'r.dat': bytes.buffer });
+  assert.deepEqual(Array.from(adc[0]), [-2048]);
+  assert.ok(Number.isNaN(physical[0][0]));
+  assert.ok(Math.abs(physical[1][0] - 0.025) < 1e-6);
+  assert.deepEqual(missing, [1, 0]);
 });
 
 test('parseAnnotations: SKIP, AUX, NUM/CHN e terminador', () => {

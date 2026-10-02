@@ -51,6 +51,7 @@ function buildPipeline(fs) {
 }
 
 function useSynthetic() {
+  loadSeq++; // invalida carregamentos pendentes ao voltar para a fonte sintética
   state.mode = 'synthetic';
   state.meta = null;
   state.scorer = null;
@@ -160,18 +161,26 @@ async function loadLocalFiles(fileList) {
   const list = [...fileList];
   const hea = list.find((f) => f.name.toLowerCase().endsWith('.hea'));
   if (!hea) { showInfo('Selecione o arquivo .hea junto com o(s) .dat (e as anotações, se houver).'); return; }
+  const token = ++loadSeq;
   try {
     const headerText = await hea.text();
+    if (token !== loadSeq) return;
     const files = {};
-    for (const f of list) if (f !== hea) files[f.name] = await f.arrayBuffer();
+    for (const f of list) if (f !== hea) {
+      const data = await f.arrayBuffer();
+      if (token !== loadSeq) return;
+      files[f.name] = data;
+    }
     const base = hea.name.slice(0, -4);
     const annName = ANNOTATION_EXTENSIONS.map((e) => `${base}.${e}`).find((n) => files[n]) ?? null;
     const record = loadRecord({ headerText, files, annotations: annName ? files[annName] : null });
+    if (token !== loadSeq) return;
     useRecord(record, {
       id: `local/${base}`, record: base, title: `Arquivo local ${base}`, dbName: 'arquivo local', license: null,
       mainsHz: null, annotations: annName, datasetLabels: '', notes: 'Registro aberto do disco; proveniência e licença são responsabilidade de quem forneceu os arquivos.',
     });
   } catch (err) {
+    if (token !== loadSeq) return;
     showInfo(`Falha ao abrir os arquivos: ${err.message}`);
   }
 }
@@ -215,6 +224,9 @@ function renderRecordInfo(record, src, meta) {
   } else rows.push(row('Anotações', 'nenhuma anotação de batimento — sem referência para pontuar o detector'));
   const ck = record.checksums.map((ok, i) => `${h.signals[i].description || i}:${ok === null ? '—' : ok ? 'ok' : 'FALHA'}`).join(' ');
   rows.push(row('Checksum WFDB', ck));
+  if (record.missingTotal) {
+    rows.push(row('Amostras ausentes', `${record.missingTotal} (sentinelas WFDB de amostra inválida) — na reprodução são preenchidas com a última amostra válida e não entram nos filtros nem no detector`));
+  }
   if (meta.notes) rows.push(row('Notas', meta.notes));
   if (meta.license) rows.push(row('Licença', meta.license));
   if (meta.citation) rows.push(row('Citar', meta.citation));
@@ -239,10 +251,18 @@ ui.mainsHz.addEventListener('change', () => {
 });
 ui.source.addEventListener('change', async () => {
   if (ui.source.value === 'synthetic') { useSynthetic(); return; }
+  const token = ++loadSeq;
   for (const el of ui.recordControls) el.hidden = false;
   ui.synthControls.hidden = true;
   if (!manifest) {
-    try { await loadManifest(); } catch (err) { showInfo(`Manifesto indisponível: ${err.message}`); return; }
+    try {
+      await loadManifest();
+      if (token !== loadSeq) return;
+    } catch (err) {
+      if (token !== loadSeq) return;
+      showInfo(`Manifesto indisponível: ${err.message}`);
+      return;
+    }
   }
   const firstBundled = manifest.records.find((r) => r.bundled) ?? manifest.records[0];
   ui.record.value = firstBundled.id;
