@@ -50,27 +50,34 @@ export class OnlineScorer {
     this.tp = 0; this.fp = 0; this.fn = 0;
   }
 
-  _takeNearest(list, t) {
-    let best = -1;
-    let bestD = this.toleranceS;
+  // Casa com a pendência MAIS ANTIGA dentro da tolerância, na mesma ordem
+  // cronológica gulosa de matchBeats(); escolher a "mais próxima" podia roubar a
+  // referência seguinte e deixar a anterior órfã (FN + FP em vez de 2 TP).
+  _takeOldestCompatible(list, t) {
     for (let i = 0; i < list.length; i++) {
-      const d = Math.abs(list[i] - t);
-      if (d <= bestD) { bestD = d; best = i; }
+      if (Math.abs(list[i] - t) <= this.toleranceS) { list.splice(i, 1); return true; }
+      if (list[i] > t + this.toleranceS) break; // lista ordenada: as próximas só se afastam
     }
-    if (best >= 0) list.splice(best, 1);
-    return best >= 0;
+    return false;
+  }
+
+  // Insere mantendo a ordem por tempo (detecções de search-back chegam com t antigo).
+  _insertSorted(list, t) {
+    let i = list.length;
+    while (i > 0 && list[i - 1] > t) i--;
+    list.splice(i, 0, t);
   }
 
   addRef(t) {
     if (t < this.ignoreBeforeS) return;
-    if (this._takeNearest(this.pendingDets, t)) this.tp++;
-    else this.pendingRefs.push(t);
+    if (this._takeOldestCompatible(this.pendingDets, t)) this.tp++;
+    else this._insertSorted(this.pendingRefs, t);
   }
 
   addDet(t) {
     if (t < this.ignoreBeforeS) return;
-    if (this._takeNearest(this.pendingRefs, t)) this.tp++;
-    else this.pendingDets.push(t);
+    if (this._takeOldestCompatible(this.pendingRefs, t)) this.tp++;
+    else this._insertSorted(this.pendingDets, t);
   }
 
   // Descarta pendências velhas demais para ainda serem casadas. `flush(Infinity)`

@@ -325,7 +325,9 @@ function step() {
   }
 
   if (ev) {
-    heart.onQrs(ev.t, state.detector.rrMean);
+    // A animação começa no instante da detecção (s.t); ev.t (R retroativo) fica
+    // para a marca no traçado, o painel e a previsão do próximo ciclo.
+    heart.onQrs(s.t, state.detector.rrMean, ev.t);
     state.lastQrsT = ev.t;
     plot.markQrs(Math.round((s.t - ev.t) * src.fs));
     if (state.scorer && ev.t <= state.scoredUntil) state.scorer.addDet(ev.t);

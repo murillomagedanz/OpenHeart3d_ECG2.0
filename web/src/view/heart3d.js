@@ -41,9 +41,7 @@ export class Heart3D {
     this.scene.add(key);
 
     this._build();
-    this.lastR = -Infinity;
-    this.rrMean = null;
-    this.phaseLabel = '—';
+    this.reset();
     this._resize();
     new ResizeObserver(() => this._resize()).observe(container);
   }
@@ -97,14 +95,20 @@ export class Heart3D {
     this.camera.updateProjectionMatrix();
   }
 
-  onQrs(tSignal, rrMean) {
-    this.lastR = tSignal;
+  // tDetected: instante do sinal em que o QRS foi declarado — a contração começa
+  // AQUI, suavemente, sem "pular" os ~125 ms de latência do detector.
+  // tR: instante estimado do pico R (retroativo), usado só para prever o próximo
+  // ciclo (contração atrial estimada pelo RR).
+  onQrs(tDetected, rrMean, tR = tDetected) {
+    this.lastR = tDetected;
+    this.lastRTrue = tR;
     if (rrMean) this.rrMean = rrMean;
   }
 
   // Esquece o histórico de eventos (troca de fonte ou reinício do registro).
   reset() {
     this.lastR = -Infinity;
+    this.lastRTrue = -Infinity;
     this.rrMean = null;
     this.phaseLabel = '—';
   }
@@ -115,8 +119,8 @@ export class Heart3D {
     const vEnv = smooth(envelope(sinceR, VENT_RISE, VENT_HOLD, VENT_FALL));
 
     let aEnv = 0;
-    if (this.rrMean && Number.isFinite(this.lastR)) {
-      const nextR = this.lastR + this.rrMean;
+    if (this.rrMean && Number.isFinite(this.lastRTrue)) {
+      const nextR = this.lastRTrue + this.rrMean;
       const atrialStart = nextR - ATRIAL_LEAD;
       aEnv = smooth(envelope(tSignal - atrialStart, ATRIAL_DUR * 0.4, 0, ATRIAL_DUR * 0.6));
     }

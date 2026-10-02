@@ -94,20 +94,26 @@ test('decodeSignals: formato 16 little-endian intercalado e checksum', () => {
   assert.deepEqual(verifyChecksums(h, adc), [true, true]);
 });
 
-test('decodeSignals: aplica skew por sinal e marca cauda ausente', () => {
+test('decodeSignals: aplica skew por sinal, marca cauda ausente e confere o checksum sobre as amostras armazenadas', () => {
   const sentinel = -32768;
-  const values = [10, 100, 20, 200, 30, 300];
+  const values = [10, 100, 20, 200, 30, 300]; // intercalado: sinal 0 = 10,20,30; sinal 1 = 100,200,300
   const v = new Int16Array(values);
+  // O checksum do cabeçalho WFDB cobre as amostras como estão no arquivo (antes do skew).
   const c0 = checksum16([10, 20, 30]);
-  const c1 = checksum16([200, 300, sentinel]);
+  const c1 = checksum16([100, 200, 300]);
   const h = parseHeader(`r 2 500 3\nr.dat 16 100(0)/mV 16 0 10 ${c0} 0 I\nr.dat 16:1 100(0)/mV 16 0 200 ${c1} 0 II`);
-  const { adc, physical, missing } = decodeSignals(h, { 'r.dat': v.buffer });
+  const { adc, physical, missing, storedChecksums } = decodeSignals(h, { 'r.dat': v.buffer });
   assert.deepEqual(Array.from(adc[0]), [10, 20, 30]);
-  assert.deepEqual(Array.from(adc[1]), [200, 300, sentinel]);
+  assert.deepEqual(Array.from(adc[1]), [200, 300, sentinel], 'sinal com skew 1 sai alinhado: começa na 2ª amostra armazenada');
   assert.deepEqual(Array.from(physical[1].slice(0, 2)), [2, 3]);
   assert.ok(Number.isNaN(physical[1][2]));
   assert.deepEqual(missing, [0, 1]);
-  assert.deepEqual(verifyChecksums(h, adc), [true, true]);
+  assert.deepEqual(storedChecksums, [c0, c1]);
+  assert.deepEqual(verifyChecksums(h, storedChecksums), [true, true]);
+  // Somar o ADC já deslocado daria outro valor para o sinal com skew — por isso não é isso que se confere.
+  assert.deepEqual(verifyChecksums(h, adc), [true, false]);
+  const rec = loadRecord({ headerText: `r 2 500 3\nr.dat 16 100(0)/mV 16 0 10 ${c0} 0 I\nr.dat 16:1 100(0)/mV 16 0 200 ${c1} 0 II`, files: { 'r.dat': v.buffer } });
+  assert.deepEqual(rec.checksums, [true, true]);
 });
 
 test('decodeSignals/FileSource: sentinela formato 16 vira NaN e playback faz sample-and-hold', () => {

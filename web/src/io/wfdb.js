@@ -171,6 +171,7 @@ export function decodeSignals(header, files) {
   const physical = new Array(header.nSig).fill(null);
   const adc = new Array(header.nSig).fill(null);
   const missing = new Array(header.nSig).fill(0);
+  const storedChecksums = new Array(header.nSig).fill(null);
   const units = header.signals.map((s) => {
     const scale = unitsToMv(s.units);
     // Unidade desconhecida (ex.: mmHg, NU): mantém o valor declarado e avisa; não é tensão.
@@ -191,7 +192,13 @@ export function decodeSignals(header, files) {
       const scale = units[sigIdx].scaleToMv / s.gain;
       const raw = new Int32Array(n);
       const phys = new Float32Array(n);
+      // O checksum do cabeçalho cobre as amostras COMO ARMAZENADAS no arquivo
+      // (getskewedframe() da biblioteca WFDB acumula antes de corrigir o skew),
+      // então ele é somado aqui sobre o fluxo não deslocado, enquanto `adc` e
+      // `physical` saem já alinhados no tempo.
+      let storedSum = 0;
       for (let j = 0; j < n; j++) {
+        storedSum = (storedSum + stream[j * idxs.length + k]) & 0xffff;
         const streamIndex = (j + s.skew) * idxs.length + k;
         const v = streamIndex < stream.length ? stream[streamIndex] : sentinel;
         raw[j] = v;
@@ -204,18 +211,24 @@ export function decodeSignals(header, files) {
       }
       adc[sigIdx] = raw;
       physical[sigIdx] = phys;
+      storedChecksums[sigIdx] = storedSum;
     });
   }
-  return { physical, adc, missing, units };
+  return { physical, adc, missing, units, storedChecksums };
 }
 
-// Soma de 16 bits de todos os valores ADC, comparada ao checksum do cabeçalho.
-export function verifyChecksums(header, adc) {
+// Compara o checksum de 16 bits de cada sinal com o do cabeçalho. `sums[i]` pode
+// ser a soma já calculada sobre as amostras armazenadas (decodeSignals) ou um
+// array de valores ADC a somar (válido para sinais sem skew).
+export function verifyChecksums(header, sums) {
   return header.signals.map((s, i) => {
-    if (s.checksum === null || !adc[i]) return null;
-    let sum = 0;
-    for (let j = 0; j < adc[i].length; j++) sum = (sum + adc[i][j]) & 0xffff;
-    return sum === (s.checksum & 0xffff);
+    if (s.checksum === null || sums[i] == null) return null;
+    let sum = sums[i];
+    if (typeof sum !== 'number') {
+      sum = 0;
+      for (let j = 0; j < sums[i].length; j++) sum = (sum + sums[i][j]) & 0xffff;
+    }
+    return (sum & 0xffff) === (s.checksum & 0xffff);
   });
 }
 
@@ -271,8 +284,8 @@ export function parseAnnotations(buffer) {
 // headerText: conteúdo do .hea; files: { nome: ArrayBuffer }; annotations: ArrayBuffer ou null.
 export function loadRecord({ headerText, files, annotations = null }) {
   const header = parseHeader(headerText);
-  const { physical, adc, missing, units } = decodeSignals(header, files);
-  const checksums = verifyChecksums(header, adc);
+  const { physical, adc, missing, units, storedChecksums } = decodeSignals(header, files);
+  const checksums = verifyChecksums(header, storedChecksums);
   const anns = annotations ? parseAnnotations(annotations) : [];
   const beats = anns.filter((a) => BEAT_SYMBOLS.has(a.symbol)).map((a) => a.sample);
   const nSamples = physical[0] ? physical[0].length : 0;

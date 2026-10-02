@@ -32,7 +32,7 @@ npm run bench        # só o sintético
 npm run bench:real   # só os registros reais anotados presentes em data/records/
 ```
 
-### Testes unitários (`tests/*.test.mjs`, 30 testes)
+### Testes unitários (`tests/*.test.mjs`, 32 testes)
 
 - `wfdb.test.mjs` — cada cabeçalho WFDB traz um checksum de 16 bits por sinal e o valor da primeira amostra; os testes decodificam os registros reais e exigem que ambos batam (formatos 16 e 212), conferem os 2273 batimentos conhecidos do MIT-BIH 100, a decodificação de anotações com SKIP/AUX/NUM/CHN, skew, sentinelas de amostra inválida, conversão de unidades (µV/mV/V → mV) e o mapeamento de derivações (MLII, C1–C6, registros genéricos).
 - `scoring.test.mjs` — escore ao vivo vs. offline, inclusive com detecção atrasada por search-back e fechamento no fim do registro.
@@ -66,7 +66,7 @@ Derivação II (MLII no MIT-BIH), frequência nativa do registro, notch na rede 
 
 Para comparação, o Pan–Tompkins original (1985) reporta no 105 cerca de 67 FP / 22 FN e no 203 cerca de 30 FP / 53 FN; aqui: 69 FP / 5 FN e 77 FP / 82 FN. O erro de 25 ms no LUDB 8 e no 203 é sistemático: o detector marca a deflexão dominante do QRS (máximo em módulo), enquanto a anotação marca o pico R, que nesses casos é pequeno.
 
-A latência (~125 ms entre o R e a detecção) vem dos filtros causais e da janela de confirmação; é inerente a um detector em tempo real e é compensada no instante reportado, não na animação.
+A latência (~125 ms entre o R e a detecção) vem dos filtros causais e da janela de confirmação; é inerente a um detector em tempo real. O instante reportado (marca no traçado, painel, escore) é compensado; a animação do coração começa suavemente no momento da detecção, sem pular esse atraso.
 
 ## Como funciona (fluxo inverso: o sinal comanda o modelo)
 
@@ -85,8 +85,8 @@ FileSource ──────┘    (PA 0,5 Hz +        (Pan–Tompkins       (s
 - `src/ecg/synth.js` — vetor cardíaco como soma de gaussianas (P, Q, R, S, T) posicionadas no tempo em relação ao R: QRS de duração fixa, QT por Bazett, PR quase constante; variabilidade RR, linha de base respiratória, ruído e rede; semente opcional para reprodutibilidade.
 - `src/ecg/filters.js` — passa-alta 1ª ordem e notch biquad (50 ou 60 Hz), por derivação, com descrição textual exibida na tela; o notch é desativado automaticamente (e a descrição diz isso) quando a frequência de amostragem do registro é ≤ 2 × f0.
 - `src/ecg/detector.js` — detector de QRS em tempo real: passa-banda por médias móveis → derivada de 10 ms → quadrado → integração 100 ms → limiar adaptativo com janela candidata; search-back após 1,66 × RR; instante do R no máximo em módulo do passa-banda. Expõe RR médio, FC e a latência máxima de emissão.
-- `src/ecg/scoring.js` — pareamento batimento a batimento (offline e incremental), janela ±150 ms; ao vivo, a espera por uma detecção segue a latência máxima do detector e `flush(Infinity)` fecha a contagem no fim do registro.
-- `src/io/wfdb.js` — leitor WFDB: cabeçalho, sinais (formatos 16, 24, 32, 61, 80, 160, 212), anotações MIT, checksum. Aplica o skew por sinal do cabeçalho, converte as unidades declaradas (µV, mV, V) para mV — unidades desconhecidas ficam sem conversão e são sinalizadas no painel — e transforma as sentinelas WFDB de amostra inválida em NaN; na reprodução elas são contadas e preenchidas por retenção da última amostra válida (sample-and-hold), sem entrar nos filtros nem no detector. Sem DOM: o mesmo código roda no navegador e nos testes.
+- `src/ecg/scoring.js` — pareamento batimento a batimento (offline e incremental), janela ±150 ms, sempre cronológico (pendência mais antiga compatível); ao vivo, a espera por uma detecção segue a latência máxima do detector e `flush(Infinity)` fecha a contagem no fim do registro.
+- `src/io/wfdb.js` — leitor WFDB: cabeçalho, sinais (formatos 16, 24, 32, 61, 80, 160, 212), anotações MIT, checksum. Aplica o skew por sinal do cabeçalho (o checksum é conferido sobre as amostras como armazenadas, antes do skew, como faz a biblioteca WFDB), converte as unidades declaradas (µV, mV, V) para mV — unidades desconhecidas ficam sem conversão e são sinalizadas no painel — e transforma as sentinelas WFDB de amostra inválida em NaN; na reprodução elas são contadas e preenchidas por retenção da última amostra válida (sample-and-hold), sem entrar nos filtros nem no detector. Sem DOM: o mesmo código roda no navegador e nos testes.
 - `src/io/fileSource.js` — reprodução do registro na frequência nativa; mapeia MLII → II, C1–C6 → V1–V6, nomes em minúsculas e registros genéricos de 1–2 canais; escolhe a derivação de detecção (II, senão a primeira disponível).
 - `src/view/ecgPlot.js` — papel 25 mm/s · 10 mm/mV, varredura, células "sem sinal" para derivações ausentes, tira de ritmo com marcas de QRS detectado e de referência. Guarda bruto e filtrado de cada amostra e escolhe o modo (bruto | filtrado | diferença) na hora de desenhar, então trocar de modo redesenha o histórico inteiro de imediato, mesmo em pausa.
 - `src/view/heart3d.js` — coração procedural (Three.js); envelopes de contração acionados pelos eventos detectados.
