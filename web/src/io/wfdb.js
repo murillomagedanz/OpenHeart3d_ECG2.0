@@ -250,10 +250,12 @@ export function parseAnnotations(buffer) {
     if (word === 0) break; // fim do arquivo
     let code = word >> 10;
     while (code === SKIP) {
-      // Intervalo longo: as duas palavras seguintes formam um inteiro de 32 bits (alta primeiro).
+      // Intervalo longo: inteiro de 32 bits com sinal na ordem "PDP-11" da
+      // biblioteca WFDB (wfdb_g32 = wfdb_g16 << 16 | wfdb_g16): palavra ALTA
+      // primeiro, cada palavra little-endian. Não é little-endian puro.
       const hi = read16();
       const lo = read16();
-      time += (hi << 16) | lo;
+      time += (hi << 16) | lo; // `hi << 16` em 32 bits já aplica o sinal
       word = read16();
       code = word >> 10;
     }

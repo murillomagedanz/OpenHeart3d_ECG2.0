@@ -197,6 +197,32 @@ test('parseAnnotations: SKIP, AUX, NUM/CHN e terminador', () => {
   assert.equal(anns[2].chan, 1);
 });
 
+test('parseAnnotations: SKIP segue a ordem PDP-11 de wfdb_p32/wfdb_g32 (palavra alta primeiro), não little-endian puro', () => {
+  // Reproduz byte a byte o que a biblioteca WFDB escreve (lib/wfdbio.c):
+  //   wfdb_p16(x): byte baixo, byte alto;   wfdb_p32(x): wfdb_p16(x >> 16), wfdb_p16(x)
+  const p16 = (out, x) => { out.push(x & 0xff, (x >> 8) & 0xff); };
+  const p32 = (out, x) => { p16(out, (x >> 16) & 0xffff); p16(out, x & 0xffff); };
+  const encode = (interval) => {
+    const out = [];
+    p16(out, 59 << 10); p32(out, interval);    // SKIP + intervalo
+    p16(out, (1 << 10) | 0);                   // N com deslocamento 0 (o SKIP já posicionou)
+    p16(out, 0);                               // fim
+    return new Uint8Array(out).buffer;
+  };
+  // 65536 → bytes 01 00 00 00 (alta=0x0001, baixa=0x0000): LE puro leria apenas 1.
+  const b = new Uint8Array(encode(65536));
+  assert.deepEqual(Array.from(b.slice(2, 6)), [0x01, 0x00, 0x00, 0x00]);
+  assert.equal(parseAnnotations(encode(65536))[0].sample, 65536);
+  assert.notEqual(new DataView(b.buffer).getInt32(2, true), 65536, 'leitura little-endian pura NÃO reproduz o valor');
+  // Valores grandes, limite e negativo (SKIP para trás é permitido pela biblioteca).
+  for (const v of [1024, 650000, 0x7fffffff, -1, -360000]) {
+    assert.equal(parseAnnotations(encode(v))[0].sample, v, `intervalo ${v}`);
+  }
+  // Checagem independente do exemplo: os bytes "00 00 01 00" citados na revisão
+  // significam alta=0x0000, baixa=0x0001 → intervalo 1 (não 65536).
+  assert.equal(parseAnnotations(new Uint8Array([0x00, 0xec, 0x00, 0x00, 0x01, 0x00, 0x00, 0x04, 0x00, 0x00]).buffer)[0].sample, 1);
+});
+
 // --- Mapeamento e pontuação ---------------------------------------------------------
 
 test('mapSignalsToLeads: MLII vira II; nomes minúsculos; registro genérico', () => {

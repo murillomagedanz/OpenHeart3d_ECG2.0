@@ -32,9 +32,9 @@ npm run bench        # só o sintético
 npm run bench:real   # só os registros reais anotados presentes em data/records/
 ```
 
-### Testes unitários (`tests/*.test.mjs`, 32 testes)
+### Testes unitários (`tests/*.test.mjs`, 33 testes)
 
-- `wfdb.test.mjs` — cada cabeçalho WFDB traz um checksum de 16 bits por sinal e o valor da primeira amostra; os testes decodificam os registros reais e exigem que ambos batam (formatos 16 e 212), conferem os 2273 batimentos conhecidos do MIT-BIH 100, a decodificação de anotações com SKIP/AUX/NUM/CHN, skew, sentinelas de amostra inválida, conversão de unidades (µV/mV/V → mV) e o mapeamento de derivações (MLII, C1–C6, registros genéricos).
+- `wfdb.test.mjs` — cada cabeçalho WFDB traz um checksum de 16 bits por sinal e o valor da primeira amostra; os testes decodificam os registros reais e exigem que ambos batam (formatos 16 e 212), conferem os 2273 batimentos conhecidos do MIT-BIH 100, a decodificação de anotações com SKIP (ordem de palavras PDP-11 da biblioteca WFDB)/AUX/NUM/CHN, skew, sentinelas de amostra inválida, conversão de unidades (µV/mV/V → mV) e o mapeamento de derivações (MLII, C1–C6, registros genéricos).
 - `scoring.test.mjs` — escore ao vivo vs. offline, inclusive com detecção atrasada por search-back e fechamento no fim do registro.
 - `filters.test.mjs` — notch atenua a rede e preserva o ECG; é desativado (e a descrição avisa) quando fs ≤ 2 × f0, em vez de divergir.
 
