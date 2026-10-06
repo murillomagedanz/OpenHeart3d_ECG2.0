@@ -7,6 +7,7 @@ import assert from 'node:assert/strict';
 import { SyntheticSource } from '../src/ecg/synth.js';
 import { LeadFilterBank, HighPass1, Notch } from '../src/ecg/filters.js';
 import { QrsDetector } from '../src/ecg/detector.js';
+import { SignalPipeline, detectAll } from '../src/ecg/pipeline.js';
 import { FileSource } from '../src/io/fileSource.js';
 import { matchBeats } from '../src/ecg/scoring.js';
 import { LEAD_NAMES } from '../src/ecg/leads.js';
@@ -35,26 +36,20 @@ function syntheticRecordWithGap({ seconds = 40, gapStart = 15, gapEnd = 18, seed
   return { record, trueBeats: src.beats.filter((t) => t > 2 && t < seconds - 0.5) };
 }
 
-// Pipeline de main.js: `gapAware` = comportamento novo (máscara → congela/re-arma);
+// `gapAware` = SignalPipeline compartilhado (interface e benchmark);
 // false = comportamento antigo (sample-and-hold atravessa filtros e detector).
 function run(record, gapAware) {
   const src = new FileSource(record);
+  if (gapAware) {
+    const { events, pipeline } = detectAll(src, { notchHz: 60, nLeads: LEAD_NAMES.length });
+    return { dets: events, det: pipeline.detector, src };
+  }
   const bank = new LeadFilterBank(FS, LEAD_NAMES.length, { notchHz: 60 });
   const det = new QrsDetector(FS);
   const dets = [];
-  let inGap = false;
   while (!src.done) {
     const s = src.next();
-    const mask = gapAware && s.missing ? s.missingLeads : null;
-    const f = bank.process(s.leads, mask);
-    let ev = null;
-    if (mask && mask[II]) {
-      if (!inGap) ev = det.notifyGap(s.t);
-      inGap = true;
-    } else {
-      inGap = false;
-      ev = det.process(f[II], s.t);
-    }
+    const ev = det.process(bank.process(s.leads)[II], s.t);
     if (ev) dets.push(ev);
   }
   return { dets, det, src };
@@ -143,4 +138,23 @@ test('comparação com o comportamento antigo (sample-and-hold através do pipel
   const { dets } = run(record, false);
   const fpAtResume = dets.map((e) => e.t).filter((t) => t >= 17.8 && t < 18.4 && !trueBeats.some((r) => Math.abs(r - t) < 0.08));
   assert.ok(fpAtResume.length >= 1, 'o teste só é informativo se o comportamento antigo de fato falhava aqui');
+});
+
+test('SignalPipeline.step: passo a passo (interface) e detectAll (benchmark) produzem exatamente os mesmos eventos', () => {
+  const { record } = syntheticRecordWithGap({ offsetMv: 1.5 });
+  const a = detectAll(new FileSource(record), { notchHz: 60, nLeads: LEAD_NAMES.length }).events;
+  const src = new FileSource(record);
+  const p = new SignalPipeline(FS, LEAD_NAMES.length, { notchHz: 60, detectionLead: src.detectionLead });
+  const b = [];
+  let gapSamples = 0;
+  while (!src.done) {
+    const s = src.next();
+    const { filtered, mask, event } = p.step(s);
+    if (mask && mask[II]) gapSamples++;
+    assert.ok(filtered.every(Number.isFinite), 'a saída filtrada nunca contém NaN');
+    if (event) b.push(event);
+  }
+  assert.equal(gapSamples, 3 * FS);
+  assert.deepEqual(b.map((e) => e.t), a.map((e) => e.t));
+  assert.ok(a.length > 30);
 });

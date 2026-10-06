@@ -32,7 +32,7 @@ npm run bench        # só o sintético
 npm run bench:real   # só os registros reais anotados presentes em data/records/
 ```
 
-### Testes unitários (`tests/*.test.mjs`, 39 testes)
+### Testes unitários (`tests/*.test.mjs`, 40 testes)
 
 - `wfdb.test.mjs` — cada cabeçalho WFDB traz um checksum de 16 bits por sinal e o valor da primeira amostra; os testes decodificam os registros reais e exigem que ambos batam (formatos 16 e 212), conferem os 2273 batimentos conhecidos do MIT-BIH 100, a decodificação de anotações com SKIP (ordem de palavras PDP-11 da biblioteca WFDB)/AUX/NUM/CHN, skew, sentinelas de amostra inválida, conversão de unidades (µV/mV/V → mV) e o mapeamento de derivações (MLII, C1–C6, registros genéricos).
 - `scoring.test.mjs` — escore ao vivo vs. offline, inclusive com detecção atrasada por search-back e fechamento no fim do registro.
@@ -54,7 +54,7 @@ npm run bench:real   # só os registros reais anotados presentes em data/records
 
 ### Detector em registros reais anotados (`tests/detector-real.mjs`)
 
-Derivação II (MLII no MIT-BIH), frequência nativa do registro, notch na rede do país de origem, pontuação após 1 s de aquecimento (±150 ms). Falha se o agregado ficar abaixo de 0,95.
+Derivação II (MLII no MIT-BIH), frequência nativa do registro, notch na rede do país de origem, pontuação após 1 s de aquecimento (±150 ms); usa o mesmo `SignalPipeline` da interface, inclusive o tratamento de lacunas. Falha se o agregado ficar abaixo de 0,95.
 
 | Registro | fs | Batimentos | Sens. | VPP | Erro médio |
 |---|---|---|---|---|---|
@@ -85,13 +85,14 @@ FileSource ──────┘    (PA 0,5 Hz +        (Pan–Tompkins       (s
 - `src/ecg/leads.js` — nomes, layout 4×3 e vetores aproximados das 12 derivações; `projectDipole()` mantém as derivações sintéticas fisicamente relacionadas.
 - `src/ecg/synth.js` — vetor cardíaco como soma de gaussianas (P, Q, R, S, T) posicionadas no tempo em relação ao R: QRS de duração fixa, QT por Bazett, PR quase constante; variabilidade RR, linha de base respiratória, ruído e rede; semente opcional para reprodutibilidade.
 - `src/ecg/filters.js` — passa-alta 1ª ordem e notch biquad (50 ou 60 Hz), por derivação, com descrição textual exibida na tela; o notch é desativado automaticamente (e a descrição diz isso) quando a frequência de amostragem do registro é ≤ 2 × f0.
+- `src/ecg/pipeline.js` — `SignalPipeline`: um passo de processamento (banco de filtros + detector + tratamento de lacunas), compartilhado pela interface, pelo benchmark em dados reais e pelos testes, para que o que é medido seja exatamente o que é exibido.
 - `src/ecg/detector.js` — detector de QRS em tempo real: passa-banda por médias móveis → derivada de 10 ms → quadrado → integração 100 ms → limiar adaptativo com janela candidata; search-back após 1,66 × RR; instante do R no máximo em módulo do passa-banda. Expõe RR médio, FC e a latência máxima de emissão.
 - `src/ecg/scoring.js` — pareamento batimento a batimento (offline e incremental), janela ±150 ms, sempre cronológico (pendência mais antiga compatível); ao vivo, a espera por uma detecção segue a latência máxima do detector e `flush(Infinity)` fecha a contagem no fim do registro.
 - `src/io/wfdb.js` — leitor WFDB: cabeçalho, sinais (formatos 16, 24, 32, 61, 80, 160, 212), anotações MIT, checksum. Aplica o skew por sinal do cabeçalho (o checksum é conferido sobre as amostras como armazenadas, antes do skew, como faz a biblioteca WFDB), converte as unidades declaradas (µV, mV, V) para mV — unidades desconhecidas ficam sem conversão e são sinalizadas no painel — e transforma as sentinelas WFDB de amostra inválida em NaN; na reprodução elas são contadas e sinalizadas por uma máscara por derivação: filtros e detector não avançam nessas amostras (nada é inventado), são re-armados na primeira amostra válida seguinte e o traçado mostra um vão. Sem DOM: o mesmo código roda no navegador e nos testes.
 - `src/io/fileSource.js` — reprodução do registro na frequência nativa; mapeia MLII → II, C1–C6 → V1–V6, nomes em minúsculas e registros genéricos de 1–2 canais; escolhe a derivação de detecção (II, senão a primeira disponível); entrega a máscara de amostras inválidas por derivação.
 - `src/view/ecgPlot.js` — papel 25 mm/s · 10 mm/mV, varredura, células "sem sinal" para derivações ausentes, tira de ritmo com marcas de QRS detectado e de referência. Guarda bruto e filtrado de cada amostra e escolhe o modo (bruto | filtrado | diferença) na hora de desenhar, então trocar de modo redesenha o histórico inteiro de imediato, mesmo em pausa.
 - `src/view/heart3d.js` — coração procedural (Three.js); envelopes de contração acionados pelos eventos detectados.
-- `src/main.js` — liga tudo; reconstrói filtros, detector e traçado na frequência da fonte a cada troca (nada é reamostrado); ao fim de um registro, recomeça do zero.
+- `src/main.js` — liga tudo; reconstrói o `SignalPipeline` e o traçado na frequência da fonte a cada troca (nada é reamostrado); ao fim de um registro, fecha o escore e recomeça do zero.
 - `scripts/fetch-records.mjs` — baixa registros do PhysioNet listados em `data/manifest.json` (ou adiciona novos pela linha de comando).
 
 ## Limites deste protótipo

@@ -1,7 +1,6 @@
 import { LEAD_NAMES } from './ecg/leads.js';
 import { SyntheticSource } from './ecg/synth.js';
-import { LeadFilterBank } from './ecg/filters.js';
-import { QrsDetector } from './ecg/detector.js';
+import { SignalPipeline } from './ecg/pipeline.js';
 import { OnlineScorer, DEFAULT_TOLERANCE_S } from './ecg/scoring.js';
 import { loadRecord } from './io/wfdb.js';
 import { FileSource } from './io/fileSource.js';
@@ -30,27 +29,25 @@ const heart = new Heart3D($('heart-canvas'));
 
 const state = {
   paused: false, speed: 1, viewMode: 'filtered', mainsHz: 60,
-  mode: 'synthetic', source: null, filters: null, detector: null, scorer: null,
+  mode: 'synthetic', source: null, pipeline: null, scorer: null,
   detectionLead: LEAD_NAMES.indexOf('II'), nextBeat: 0, scoredUntil: Infinity,
   signalTime: 0, lastQrsT: null, meta: null,
   lastPass: null, // escore fechado da última reprodução completa do registro
-  inGap: false,   // a derivação de detecção está numa lacuna de amostras inválidas
 };
 let manifest = null;
 
 // --- Pipeline -----------------------------------------------------------------
 
-// Filtros, detector e traçado são reconstruídos na frequência da fonte: nada é reamostrado.
+// Filtros, detector e traçado são reconstruídos na frequência da fonte: nada é
+// reamostrado. O SignalPipeline é o mesmo usado pelo benchmark em dados reais.
 function buildPipeline(fs) {
-  state.filters = new LeadFilterBank(fs, LEAD_NAMES.length, { notchHz: state.mainsHz });
-  state.detector = new QrsDetector(fs);
+  state.pipeline = new SignalPipeline(fs, LEAD_NAMES.length, { notchHz: state.mainsHz, detectionLead: state.detectionLead });
   plot.reset(fs);
   heart.reset();
   state.lastQrsT = null;
   state.nextBeat = 0;
   if (state.scorer) state.scorer.reset();
-  state.inGap = false;
-  ui.filteredOption.textContent = `Filtrado (PA 0,5 Hz + notch ${state.mainsHz} Hz${state.filters.notchActive ? '' : ' desativado: fs baixa'})`;
+  ui.filteredOption.textContent = `Filtrado (PA 0,5 Hz + notch ${state.mainsHz} Hz${state.pipeline.filters.notchActive ? '' : ' desativado: fs baixa'})`;
 }
 
 function useSynthetic() {
@@ -217,7 +214,7 @@ function renderRecordInfo(record, src, meta) {
   rows.push(row('Registro', `${h.name} · ${h.fs} Hz · ${record.nSamples} amostras · ${record.duration.toFixed(1)} s · ${h.nSig} sinal(is)`));
   const mapped = LEAD_NAMES.map((n, i) => (src.available[i] ? (src.aliases[n] ? `${n}←${src.aliases[n]}` : n) : null)).filter(Boolean);
   rows.push(row('Derivações', mapped.join(', ') + (src.unmapped.length ? ` · não mapeados: ${src.unmapped.map((u) => u.description).join(', ')}` : '')));
-  rows.push(row('Detecção', `${LEAD_NAMES[src.detectionLead]}${src.aliases[LEAD_NAMES[src.detectionLead]] ? ` (${src.aliases[LEAD_NAMES[src.detectionLead]]})` : ''} · ${state.filters.description}`));
+  rows.push(row('Detecção', `${LEAD_NAMES[src.detectionLead]}${src.aliases[LEAD_NAMES[src.detectionLead]] ? ` (${src.aliases[LEAD_NAMES[src.detectionLead]]})` : ''} · ${state.pipeline.filters.description}`));
   const nonMv = record.units.map((u, i) => ({ u, name: h.signals[i].description || `sinal ${i}` })).filter(({ u }) => u.declared !== 'mV' || !u.known);
   if (nonMv.length) {
     rows.push(row('Unidades', nonMv.map(({ u, name }) => (u.known
@@ -291,8 +288,8 @@ ui.openFiles.addEventListener('change', () => loadLocalFiles(ui.openFiles.files)
 
 const viewLabels = () => ({
   raw: 'bruto',
-  filtered: `filtrado: ${state.filters.description}`,
-  diff: `diferença (bruto − filtrado): ${state.filters.description}`,
+  filtered: `filtrado: ${state.pipeline.filters.description}`,
+  diff: `diferença (bruto − filtrado): ${state.pipeline.filters.description}`,
 });
 
 function step() {
@@ -310,22 +307,13 @@ function step() {
     return;
   }
   const s = src.next();
-  // Amostras inválidas (sentinelas WFDB) não são medidas: filtros e detector não
-  // avançam nelas, e o traçado mostra um vão. Na derivação de detecção, o início
-  // da lacuna fecha a candidata aberta e a retomada re-arma o detector.
-  const mask = s.missing ? s.missingLeads : null;
-  const filtered = state.filters.process(s.leads, mask);
+  // Mesmo passo de processamento do benchmark: amostras inválidas (sentinelas
+  // WFDB) não são medidas — filtros e detector não avançam nelas, o início da
+  // lacuna fecha a candidata aberta, a retomada re-arma tudo e o traçado mostra
+  // um vão. O detector vê apenas o sinal; nunca os instantes verdadeiros do
+  // gerador nem as anotações.
+  const { filtered, mask, event: ev } = state.pipeline.step(s);
   state.signalTime = s.t;
-
-  // O detector vê apenas o sinal; nunca os instantes verdadeiros do gerador nem as anotações.
-  let ev = null;
-  if (mask && mask[state.detectionLead]) {
-    if (!state.inGap) ev = state.detector.notifyGap(s.t);
-    state.inGap = true;
-  } else {
-    state.inGap = false;
-    ev = state.detector.process(filtered[state.detectionLead], s.t);
-  }
 
   plot.push(s.leads, filtered, mask);
 
@@ -340,14 +328,14 @@ function step() {
   if (ev) {
     // A animação começa no instante da detecção (s.t); ev.t (R retroativo) fica
     // para a marca no traçado, o painel e a previsão do próximo ciclo.
-    heart.onQrs(s.t, state.detector.rrMean, ev.t);
+    heart.onQrs(s.t, state.pipeline.detector.rrMean, ev.t);
     state.lastQrsT = ev.t;
     plot.markQrs(Math.round((s.t - ev.t) * src.fs));
     if (state.scorer && ev.t <= state.scoredUntil) state.scorer.addDet(ev.t);
   }
   if (state.scorer) {
     // Uma referência só vira FN depois do pior atraso possível do detector (search-back).
-    state.scorer.maxLatencyS = state.detector.maxLatency;
+    state.scorer.maxLatencyS = state.pipeline.detector.maxLatency;
     state.scorer.flush(s.t);
   }
 }
@@ -371,7 +359,7 @@ function frame(now) {
   plot.draw();
   heart.update(state.signalTime);
 
-  const det = state.detector;
+  const det = state.pipeline.detector;
   const hr = det.heartRate;
   ui.hrDetected.textContent = hr ? `${hr.toFixed(0)} bpm` : '—';
   ui.rrMean.textContent = det.rrMean ? `${(det.rrMean * 1000).toFixed(0)} ms` : '—';

@@ -1,6 +1,7 @@
 // Benchmark do detector de QRS em registros reais anotados (data/records/).
-// Para cada registro com anotações, roda filtros + detector na derivação II
-// (ou MLII) na frequência nativa e compara com os batimentos anotados
+// Para cada registro com anotações, roda o MESMO SignalPipeline da interface
+// (filtros + detector na derivação II ou MLII, frequência nativa, lacunas de
+// amostras inválidas respeitadas) e compara com os batimentos anotados
 // (janela ±150 ms, ANSI/AAMI EC57). Executar: `npm run bench:real`.
 
 import { access, readFile } from 'node:fs/promises';
@@ -9,8 +10,7 @@ import { fileURLToPath } from 'node:url';
 
 import { loadRecord } from '../src/io/wfdb.js';
 import { FileSource } from '../src/io/fileSource.js';
-import { LeadFilterBank } from '../src/ecg/filters.js';
-import { QrsDetector } from '../src/ecg/detector.js';
+import { detectAll } from '../src/ecg/pipeline.js';
 import { matchBeats } from '../src/ecg/scoring.js';
 import { LEAD_NAMES } from '../src/ecg/leads.js';
 
@@ -39,17 +39,10 @@ async function readLocalRecord(entry) {
   return loadRecord({ headerText, files, annotations: entry.annotations ? files[entry.annotations] : null });
 }
 
+// O mesmo SignalPipeline da interface: máscara de amostras inválidas respeitada,
+// notifyGap/retomada na derivação de detecção. O benchmark mede o que o app faz.
 function runDetector(source, mainsHz) {
-  const filters = new LeadFilterBank(source.fs, LEAD_NAMES.length, { notchHz: mainsHz });
-  const detector = new QrsDetector(source.fs);
-  const dets = [];
-  while (!source.done) {
-    const s = source.next();
-    const f = filters.process(s.leads);
-    const ev = detector.process(f[source.detectionLead], s.t);
-    if (ev) dets.push(ev.t);
-  }
-  return dets;
+  return detectAll(source, { notchHz: mainsHz, nLeads: LEAD_NAMES.length }).events.map((e) => e.t);
 }
 
 const rows = [];
@@ -70,7 +63,7 @@ for (const entry of manifest.records) {
   const m = matchBeats(refs, dets, TOLERANCE_S);
   gross.tp += m.tp; gross.fp += m.fp; gross.fn += m.fn;
   const lead = LEAD_NAMES[src.detectionLead] + (src.aliases[LEAD_NAMES[src.detectionLead]] ? ` (${src.aliases[LEAD_NAMES[src.detectionLead]]})` : '');
-  rows.push({ id: entry.id, fs: src.fs, lead, beats: refs.length, ...m });
+  rows.push({ id: entry.id, fs: src.fs, lead, beats: refs.length, missing: rec.missing[src.mapping[src.detectionLead]] ?? 0, ...m });
 }
 
 for (const r of rows) {
@@ -78,7 +71,8 @@ for (const r of rows) {
     `${r.id.padEnd(16)} fs=${String(r.fs).padStart(3)} ${r.lead.padEnd(10)} ` +
       `ref=${String(r.beats).padStart(4)} tp=${String(r.tp).padStart(4)} fp=${String(r.fp).padStart(3)} fn=${String(r.fn).padStart(3)} ` +
       `sens=${r.sensitivity.toFixed(3)} ppv=${r.ppv.toFixed(3)} ` +
-      `viés=${r.meanErrorMs.toFixed(1).padStart(6)}ms mae=${r.maeMs.toFixed(1)}ms`,
+      `viés=${r.meanErrorMs.toFixed(1).padStart(6)}ms mae=${r.maeMs.toFixed(1)}ms` +
+      (r.missing ? ` lacunas=${r.missing} amostras` : ''),
   );
 }
 
