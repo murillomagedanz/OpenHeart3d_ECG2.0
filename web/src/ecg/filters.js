@@ -14,6 +14,11 @@ export class HighPass1 {
     this.prevY = y;
     return y;
   }
+  // Re-arma o filtro como se o sinal começasse agora em `x`: saída 0, sem degrau.
+  prime(x) {
+    this.prevX = x;
+    this.prevY = 0;
+  }
 }
 
 export class Notch {
@@ -37,6 +42,10 @@ export class Notch {
     this.y2 = this.y1; this.y1 = y;
     return y;
   }
+  // Estado de regime permanente para entrada constante `x` (ganho DC = 1).
+  prime(x) {
+    this.x1 = this.x2 = this.y1 = this.y2 = x;
+  }
 }
 
 export class LeadFilterBank {
@@ -50,12 +59,30 @@ export class LeadFilterBank {
     this.chains = Array.from({ length: nLeads }, () => (this.notchActive
       ? [new HighPass1(fs, hpHz), new Notch(fs, notchHz)]
       : [new HighPass1(fs, hpHz)]));
+    this.lastOut = new Float32Array(nLeads);
+    this.skipped = new Uint8Array(nLeads);
   }
-  process(leads) {
+
+  // `skipMask[i]` verdadeiro = amostra ausente nessa derivação: o estado do filtro
+  // NÃO avança (nada é inventado) e a saída anterior é repetida. Na primeira
+  // amostra válida após uma lacuna, a cadeia é re-armada no novo valor, como no
+  // início do registro, para não gerar um degrau artificial.
+  process(leads, skipMask = null) {
     const out = new Float32Array(leads.length);
     for (let i = 0; i < leads.length; i++) {
+      if (skipMask && skipMask[i]) {
+        this.skipped[i] = 1;
+        out[i] = this.lastOut[i];
+        continue;
+      }
       let v = leads[i];
-      for (const f of this.chains[i]) v = f.process(v);
+      if (this.skipped[i]) {
+        this.skipped[i] = 0;
+        for (const f of this.chains[i]) { f.prime(v); v = f.process(v); }
+      } else {
+        for (const f of this.chains[i]) v = f.process(v);
+      }
+      this.lastOut[i] = v;
       out[i] = v;
     }
     return out;

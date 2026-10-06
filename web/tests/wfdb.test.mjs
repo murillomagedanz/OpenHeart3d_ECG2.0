@@ -197,6 +197,23 @@ test('parseAnnotations: SKIP, AUX, NUM/CHN e terminador', () => {
   assert.equal(anns[2].chan, 1);
 });
 
+test("loadRecord: '?' (LEARN, código 30) conta como batimento de referência, como isqrs() da biblioteca WFDB; '!' não", () => {
+  assert.ok(BEAT_SYMBOLS.has('?'));
+  assert.ok(!BEAT_SYMBOLS.has('!'));
+  const words = [];
+  const w = (code, data) => words.push((code << 10) | (data & 0x3ff));
+  w(1, 300);   // N em 300
+  w(30, 300);  // ? em 600 (batimento não classificado no aprendizado)
+  w(31, 300);  // ! em 900 (onda de flutter: não é batimento para a pontuação)
+  w(5, 300);   // V em 1200
+  w(0, 0);
+  const buf = new Uint8Array(words.length * 2);
+  words.forEach((x, i) => { buf[2 * i] = x & 0xff; buf[2 * i + 1] = (x >> 8) & 0xff; });
+  const rec = loadRecord({ headerText: 'r 1 500 2000\nr.dat 16 200(0)/mV 16 0 0 0 0 II', files: { 'r.dat': new Int16Array(2000).buffer }, annotations: buf.buffer });
+  assert.deepEqual(rec.annotations.map((a) => a.symbol), ['N', '?', '!', 'V']);
+  assert.deepEqual(rec.beats, [300, 600, 1200]);
+});
+
 test('parseAnnotations: SKIP segue a ordem PDP-11 de wfdb_p32/wfdb_g32 (palavra alta primeiro), não little-endian puro', () => {
   // Reproduz byte a byte o que a biblioteca WFDB escreve (lib/wfdbio.c):
   //   wfdb_p16(x): byte baixo, byte alto;   wfdb_p32(x): wfdb_p16(x >> 16), wfdb_p16(x)

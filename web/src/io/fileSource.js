@@ -70,10 +70,15 @@ export class FileSource {
     this.lastValidLeads.fill(0);
   }
 
-  // Retorna { t, index, leads: Float32Array(12), missing } em mV; derivações ausentes ficam em 0.
+  // Retorna { t, index, leads: Float32Array(12), missing, missingLeads } em mV.
+  // Derivações ausentes no registro ficam em 0. Numa amostra inválida (sentinela
+  // WFDB), `leads[l]` repete a última amostra válida — só para quem ignorar a
+  // máscara nunca receber NaN — e `missingLeads[l] = 1` avisa quem processa para
+  // NÃO tratar o valor como medida (filtros, detector e traçado usam a máscara).
   next() {
     const i = this.index;
     const leads = new Float32Array(LEAD_NAMES.length);
+    const missingLeads = new Uint8Array(LEAD_NAMES.length);
     let missing = false;
     for (let l = 0; l < leads.length; l++) {
       const s = this.mapping[l];
@@ -84,12 +89,13 @@ export class FileSource {
           this.lastValidLeads[l] = v;
         } else {
           leads[l] = this.lastValidLeads[l];
+          missingLeads[l] = 1;
           this.missingSamples++;
           missing = true;
         }
       }
     }
     this.index++;
-    return { t: i / this.fs, index: i, leads, missing };
+    return { t: i / this.fs, index: i, leads, missing, missingLeads };
   }
 }

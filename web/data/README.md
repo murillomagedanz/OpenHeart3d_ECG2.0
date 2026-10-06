@@ -37,7 +37,7 @@ O PhysioNet não envia cabeçalhos CORS, então o navegador não consegue buscar
 
 ## Como as anotações são usadas
 
-- **MIT-BIH `.atr`**: anotações de batimento (`N`, `A`, `V`, …) marcam o pico do QRS. Usadas como referência para pontuar o detector (janela ±150 ms, ANSI/AAMI EC57). Anotações que não são batimentos (`+` ritmo, `~` ruído, `"` comentário) são ignoradas na pontuação.
+- **MIT-BIH `.atr`**: anotações de batimento (`N`, `A`, `V`, …) marcam o pico do QRS. Usadas como referência para pontuar o detector (janela ±150 ms, ANSI/AAMI EC57). Anotações que não são batimentos (`+` ritmo, `~` ruído, `"` comentário, `!` onda de flutter) são ignoradas na pontuação; `?` (batimento não classificado no período de aprendizado) conta como batimento, como em `isqrs()` da biblioteca WFDB.
 - **LUDB `.ii`** (e um arquivo por derivação): `(` início, `p`/`N`/`t` pico, `)` fim de cada onda. O pico `N` é usado como referência de QRS; `p` e `t` ficam disponíveis para a futura detecção de P e T. O LUDB não anota o ciclo incompleto no fim do registro, por isso detecções após o último batimento anotado não entram no escore.
 - **PTB-XL**: sem anotações de batimento; serve para visualização de 12 derivações e para os rótulos diagnósticos do banco.
 

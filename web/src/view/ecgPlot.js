@@ -63,16 +63,20 @@ export class EcgPlot {
     this.w = r.width; this.h = r.height;
   }
 
-  // raw e filtered: Float32Array(12) em mV da mesma amostra.
-  push(raw, filtered) {
+  // raw e filtered: Float32Array(12) em mV da mesma amostra. missingMask[i] = 1
+  // marca amostra inválida (lacuna de dados): o traçado guarda NaN e desenha um
+  // vão em vez de inventar um valor.
+  push(raw, filtered, missingMask = null) {
     const ci = this.n % this.cellLen;
     for (let i = 0; i < raw.length; i++) {
-      this.rawCell[i][ci] = raw[i];
-      this.filtCell[i][ci] = filtered[i];
+      const gap = missingMask && missingMask[i];
+      this.rawCell[i][ci] = gap ? NaN : raw[i];
+      this.filtCell[i][ci] = gap ? NaN : filtered[i];
     }
     const ri = this.n % this.rhythmLen;
-    this.rawRhythm[ri] = raw[this.rhythmIdx];
-    this.filtRhythm[ri] = filtered[this.rhythmIdx];
+    const gapR = missingMask && missingMask[this.rhythmIdx];
+    this.rawRhythm[ri] = gapR ? NaN : raw[this.rhythmIdx];
+    this.filtRhythm[ri] = gapR ? NaN : filtered[this.rhythmIdx];
     this.markers[ri] = 0;
     this.refMarkers[ri] = 0;
     this.n++;
@@ -130,8 +134,10 @@ export class EcgPlot {
     let started = false;
     for (let k = 0; k < count; k++) {
       if (k === head) { started = false; continue; }
+      const v = this._sample(rawBuf, filtBuf, k);
+      if (!Number.isFinite(v)) { started = false; continue; } // lacuna de dados: interrompe o traço
       const px = x + (k / len) * w;
-      const py = mid - this._sample(rawBuf, filtBuf, k) * pxPerMv;
+      const py = mid - v * pxPerMv;
       if (!started) { ctx.moveTo(px, py); started = true; } else ctx.lineTo(px, py);
     }
     ctx.stroke();

@@ -11,8 +11,14 @@ export const ANNOTATION_SYMBOLS = {
   40: ')', 41: 'r',
 };
 
-// Símbolos que marcam um complexo QRS (conjunto "beat" do WFDB, sem o código de aprendizado).
-export const BEAT_SYMBOLS = new Set(['N', 'L', 'R', 'B', 'A', 'a', 'J', 'S', 'V', 'r', 'F', 'e', 'j', 'n', 'E', '/', 'f', 'Q']);
+// Símbolos que marcam um complexo QRS (conjunto "beat" do WFDB).
+export const BEAT_SYMBOLS = new Set(['N', 'L', 'R', 'B', 'A', 'a', 'J', 'S', 'V', 'r', 'F', 'e', 'j', 'n', 'E', '/', 'f', 'Q', '?']);
+// Mesmo conjunto que `isqrs()` em <wfdb/ecgmap.h> e que a lista "beat annotations"
+// do PhysioBank, inclusive '?' (LEARN, código 30: batimento não classificado no
+// período de aprendizado). Fica de fora '!' (onda de flutter ventricular, código
+// 31): isqrs() a marca como QRS, mas a norma EC57 e o PhysioBank a tratam como
+// não-batimento, e episódios de flutter/fibrilação não entram na comparação
+// batimento a batimento.
 
 const SUPPORTED_FORMATS = new Set([16, 24, 32, 61, 80, 160, 212]);
 

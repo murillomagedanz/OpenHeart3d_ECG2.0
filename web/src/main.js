@@ -34,6 +34,7 @@ const state = {
   detectionLead: LEAD_NAMES.indexOf('II'), nextBeat: 0, scoredUntil: Infinity,
   signalTime: 0, lastQrsT: null, meta: null,
   lastPass: null, // escore fechado da última reprodução completa do registro
+  inGap: false,   // a derivação de detecção está numa lacuna de amostras inválidas
 };
 let manifest = null;
 
@@ -48,6 +49,7 @@ function buildPipeline(fs) {
   state.lastQrsT = null;
   state.nextBeat = 0;
   if (state.scorer) state.scorer.reset();
+  state.inGap = false;
   ui.filteredOption.textContent = `Filtrado (PA 0,5 Hz + notch ${state.mainsHz} Hz${state.filters.notchActive ? '' : ' desativado: fs baixa'})`;
 }
 
@@ -234,7 +236,7 @@ function renderRecordInfo(record, src, meta) {
   const ck = record.checksums.map((ok, i) => `${h.signals[i].description || i}:${ok === null ? '—' : ok ? 'ok' : 'FALHA'}`).join(' ');
   rows.push(row('Checksum WFDB', ck));
   if (record.missingTotal) {
-    rows.push(row('Amostras ausentes', `${record.missingTotal} (sentinelas WFDB de amostra inválida) — na reprodução são preenchidas com a última amostra válida e não entram nos filtros nem no detector`));
+    rows.push(row('Amostras ausentes', `${record.missingTotal} (sentinelas WFDB de amostra inválida) — aparecem como vãos no traçado; filtros e detector não avançam nelas e são re-armados quando o sinal volta`));
   }
   if (meta.notes) rows.push(row('Notas', meta.notes));
   if (meta.license) rows.push(row('Licença', meta.license));
@@ -308,13 +310,24 @@ function step() {
     return;
   }
   const s = src.next();
-  const filtered = state.filters.process(s.leads);
+  // Amostras inválidas (sentinelas WFDB) não são medidas: filtros e detector não
+  // avançam nelas, e o traçado mostra um vão. Na derivação de detecção, o início
+  // da lacuna fecha a candidata aberta e a retomada re-arma o detector.
+  const mask = s.missing ? s.missingLeads : null;
+  const filtered = state.filters.process(s.leads, mask);
   state.signalTime = s.t;
 
   // O detector vê apenas o sinal; nunca os instantes verdadeiros do gerador nem as anotações.
-  const ev = state.detector.process(filtered[state.detectionLead], s.t);
+  let ev = null;
+  if (mask && mask[state.detectionLead]) {
+    if (!state.inGap) ev = state.detector.notifyGap(s.t);
+    state.inGap = true;
+  } else {
+    state.inGap = false;
+    ev = state.detector.process(filtered[state.detectionLead], s.t);
+  }
 
-  plot.push(s.leads, filtered);
+  plot.push(s.leads, filtered, mask);
 
   if (state.mode === 'file') {
     while (state.nextBeat < src.beats.length && src.beats[state.nextBeat] <= s.index) {

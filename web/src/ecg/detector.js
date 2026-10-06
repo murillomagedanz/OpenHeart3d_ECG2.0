@@ -40,6 +40,8 @@ export class QrsDetector {
 
     this.candidate = null; // { startT, endT, maxFeat, maxAbsBp, peakT, strong }
     this.backup = null;    // melhor candidata fraca desde o último QRS
+    this.gapSinceLastPeak = false; // houve lacuna de dados desde o último QRS emitido
+    this.resumePending = false;    // primeira amostra após lacuna re-arma os buffers
   }
 
   get rrMean() {
@@ -66,7 +68,9 @@ export class QrsDetector {
 
   _emit(c, levelWeight, nowT, searchBack) {
     const peakT = c.peakT - this.groupDelay;
-    const rr = Number.isFinite(this.lastPeakT) ? peakT - this.lastPeakT : null;
+    // Um RR que atravessa uma lacuna de dados não é um intervalo cardíaco: não entra na média.
+    const rr = Number.isFinite(this.lastPeakT) && !this.gapSinceLastPeak ? peakT - this.lastPeakT : null;
+    this.gapSinceLastPeak = false;
     this.lastPeakT = peakT;
     if (rr) {
       this.rr.push(rr);
@@ -86,8 +90,34 @@ export class QrsDetector {
     return null;
   }
 
+  // Início de uma lacuna de dados (amostras inválidas) em `t`. Fecha a candidata
+  // aberta com o que havia antes da lacuna (pode emitir um QRS real), descarta a
+  // reserva do search-back — "1,66 × RR sem QRS" não faz sentido através de uma
+  // lacuna — e marca que os buffers devem ser re-armados na primeira amostra
+  // válida. Limiares (signalLevel/noiseLevel) são conhecimento que continua
+  // válido e são mantidos. Retorna null ou o evento da candidata fechada.
+  notifyGap(t) {
+    const ev = this.candidate ? this._closeCandidate(t) : null;
+    this.backup = null;
+    this.gapSinceLastPeak = true;
+    this.resumePending = true;
+    return ev;
+  }
+
+  // Re-arma as memórias de sinal com o valor atual (como no início do registro):
+  // passa-banda, derivada e MWI partem de zero, sem degrau entre o antes e o
+  // depois da lacuna.
+  _primeBuffers(x) {
+    this.bufShort.fill(x); this.sumShort = x * this.winShort;
+    this.bufLong.fill(x); this.sumLong = x * this.winLong;
+    this.bpHist.fill(0);
+    this.mwi.fill(0); this.mwiSum = 0;
+    this.resumePending = false;
+  }
+
   // Retorna null ou { t: instante estimado do pico R, rr, latency, searchBack }.
   process(x, t) {
+    if (this.resumePending) this._primeBuffers(x);
     const i = this.idx;
     this.sumShort += x - this.bufShort[i % this.winShort];
     this.bufShort[i % this.winShort] = x;
