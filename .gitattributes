@@ -2,4 +2,5 @@
 web/data/records/** -text
 # Three.js vendorizado: manter como veio
 web/vendor/** -text
-
+# Cofre cifrado: binarios intactos
+web/assets/calib/** -text
