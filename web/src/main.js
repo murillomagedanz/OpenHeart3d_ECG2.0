@@ -67,6 +67,7 @@ function useSynthetic() {
   ui.synthControls.hidden = false;
   for (const el of ui.recordControls) el.hidden = true;
   ui.recordInfo.hidden = true;
+  syncSourceControls();
 }
 
 function useRecord(record, meta) {
@@ -90,6 +91,15 @@ function useRecord(record, meta) {
   ui.synthControls.hidden = true;
   for (const el of ui.recordControls) el.hidden = false;
   renderRecordInfo(record, src, meta);
+  syncSourceControls();
+}
+
+function syncSourceControls() {
+  const synthetic = state.mode === 'synthetic';
+  ui.source.value = synthetic ? 'synthetic' : 'file';
+  ui.record.value = synthetic ? '' : state.meta.id;
+  ui.synthControls.hidden = !synthetic;
+  for (const el of ui.recordControls) el.hidden = synthetic;
 }
 
 // --- Parâmetros da fonte sintética ----------------------------------------------
@@ -152,6 +162,7 @@ async function loadManifestRecord(id) {
     useRecord(record, { ...entry, dbName: db.name, dbUrl: db.url, license: db.license, mainsHz: db.mainsHz, citation: db.citation });
   } catch (err) {
     if (token !== loadSeq) return;
+    syncSourceControls();
     showInfo(`Não foi possível carregar ${entry.id}: ${err.message}. `
       + 'Se o registro não estiver em web/data/records/, execute `npm run fetch-data` dentro de web/ — ou abra os arquivos pelo seletor ao lado.');
   }
@@ -183,6 +194,7 @@ async function loadLocalFiles(fileList) {
     });
   } catch (err) {
     if (token !== loadSeq) return;
+    syncSourceControls();
     showInfo(`Falha ao abrir os arquivos: ${err.message}`);
   }
 }
@@ -273,6 +285,7 @@ ui.source.addEventListener('change', async () => {
       if (token !== loadSeq) return;
     } catch (err) {
       if (token !== loadSeq) return;
+      syncSourceControls();
       showInfo(`Manifesto indisponível: ${err.message}`);
       return;
     }

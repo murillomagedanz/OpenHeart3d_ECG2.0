@@ -32,7 +32,9 @@ npm run bench        # só o sintético
 npm run bench:real   # só os registros reais anotados presentes em data/records/
 ```
 
-### Testes unitários (`tests/*.test.mjs`, 40 testes)
+### Testes unitários (`tests/*.test.mjs`, 43 testes)
+
+- `source-controls.test.mjs` — falhas de carregamento restauram os seletores para a fonte ativa, preservam o erro visível e não sobrescrevem uma seleção mais recente.
 
 - `wfdb.test.mjs` — cada cabeçalho WFDB traz um checksum de 16 bits por sinal e o valor da primeira amostra; os testes decodificam os registros reais e exigem que ambos batam (formatos 16 e 212), conferem os 2273 batimentos conhecidos do MIT-BIH 100, a decodificação de anotações com SKIP (ordem de palavras PDP-11 da biblioteca WFDB)/AUX/NUM/CHN, skew, sentinelas de amostra inválida, conversão de unidades (µV/mV/V → mV) e o mapeamento de derivações (MLII, C1–C6, registros genéricos).
 - `scoring.test.mjs` — escore ao vivo vs. offline, inclusive com detecção atrasada por search-back e fechamento no fim do registro.
