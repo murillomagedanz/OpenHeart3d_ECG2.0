@@ -1,10 +1,12 @@
 import { LEAD_NAMES } from './ecg/leads.js';
 import { SyntheticSource } from './ecg/synth.js';
 import { SignalPipeline } from './ecg/pipeline.js';
+import { SpectrumWindow, summarizeFilterBands } from './ecg/spectrum.js';
 import { OnlineScorer, DEFAULT_TOLERANCE_S } from './ecg/scoring.js';
 import { loadRecord } from './io/wfdb.js';
 import { FileSource } from './io/fileSource.js';
 import { EcgPlot } from './view/ecgPlot.js';
+import { SpectrumPlot } from './view/spectrumPlot.js';
 import { Heart3D } from './view/heart3d.js';
 import { loadRuntimeAsset, isDevHost } from './view/assetVault.js';
 
@@ -22,13 +24,18 @@ const ui = {
   recordInfo: $('record-info'), recordInfoBody: $('record-info-body'),
   modelLabel: $('model-label'), autoRotate: $('auto-rotate'), xray: $('xray'),
   clipOn: $('clip-on'), clipAxis: $('clip-axis'), clipPos: $('clip-pos'),
+  spectrumCanvas: $('spectrum-canvas'), spectrumStatus: $('spectrum-status'),
+  spectrumMetrics: $('spectrum-metrics'),
 };
 
 const SYNTH_BANNER = 'DADOS SINTÉTICOS — simulação didática. Não é dispositivo médico, não realiza diagnóstico. '
   + 'A animação indica sincronização temporal com eventos elétricos detectados; não representa anatomia ou força reais.';
 
 const plot = new EcgPlot($('ecg-canvas'), SYNTH_FS);
+const spectrumWindow = new SpectrumWindow(SYNTH_FS);
+const spectrumPlot = new SpectrumPlot(ui.spectrumCanvas, ui.spectrumStatus, ui.spectrumMetrics);
 const heart = new Heart3D($('heart-canvas'));
+let spectrumMode = 'frequency';
 
 const state = {
   paused: false, speed: 1, viewMode: 'filtered', mainsHz: 60,
@@ -38,14 +45,27 @@ const state = {
   lastPass: null, // escore fechado da última reprodução completa do registro
 };
 let manifest = null;
+let latestSpectrum = null;
+let latestTimeFrequency = null;
+let latestBandMetrics = null;
+let lastSpectrumVersion = -1;
+let lastSpectrumAt = 0;
+let pendingFileRestart = false;
 
 // --- Pipeline -----------------------------------------------------------------
 
 // Filtros, detector e traçado são reconstruídos na frequência da fonte: nada é
 // reamostrado. O SignalPipeline é o mesmo usado pelo benchmark em dados reais.
 function buildPipeline(fs) {
+  pendingFileRestart = false;
   state.pipeline = new SignalPipeline(fs, LEAD_NAMES.length, { notchHz: state.mainsHz, detectionLead: state.detectionLead });
   plot.reset(fs);
+  spectrumWindow.reset(fs);
+  latestSpectrum = null;
+  latestTimeFrequency = null;
+  latestBandMetrics = null;
+  lastSpectrumVersion = -1;
+  lastSpectrumAt = 0;
   heart.reset();
   state.lastQrsT = null;
   state.nextBeat = 0;
@@ -264,6 +284,15 @@ ui.viewMode.addEventListener('change', () => {
   state.viewMode = ui.viewMode.value;
   plot.setMode(state.viewMode); // o traçado guarda bruto e filtrado: redesenha o histórico no novo modo
 });
+for (const button of document.querySelectorAll('[data-spectrum-mode]')) {
+  button.addEventListener('click', () => {
+    spectrumMode = button.dataset.spectrumMode;
+    for (const option of document.querySelectorAll('[data-spectrum-mode]')) {
+      option.setAttribute('aria-pressed', String(option === button));
+    }
+    lastSpectrumVersion = -1;
+  });
+}
 ui.speed.addEventListener('change', () => { state.speed = Number(ui.speed.value); });
 ui.pause.addEventListener('click', () => {
   state.paused = !state.paused;
@@ -352,9 +381,8 @@ function step() {
       state.scorer.flush(Infinity);
       state.lastPass = state.scorer.snapshot();
     }
-    src.reset();
-    buildPipeline(src.fs);
-    return;
+    pendingFileRestart = true;
+    return false;
   }
   const s = src.next();
   // Mesmo passo de processamento do benchmark: amostras inválidas (sentinelas
@@ -366,6 +394,11 @@ function step() {
   state.signalTime = s.t;
 
   plot.push(s.leads, filtered, mask);
+  spectrumWindow.push(
+    s.leads[state.detectionLead],
+    filtered[state.detectionLead],
+    Boolean(mask && mask[state.detectionLead]),
+  );
 
   if (state.mode === 'file') {
     while (state.nextBeat < src.beats.length && src.beats[state.nextBeat] <= s.index) {
@@ -402,11 +435,51 @@ function frame(now) {
     accumulator += dtReal * state.speed;
     const nSamples = Math.floor(accumulator * fs);
     accumulator -= nSamples / fs;
-    for (let i = 0; i < nSamples; i++) step();
+    for (let i = 0; i < nSamples; i++) {
+      if (step() === false) {
+        accumulator += (nSamples - i) / fs;
+        break;
+      }
+    }
   }
 
   plot.label = viewLabels()[state.viewMode];
   plot.draw();
+  if (spectrumWindow.full && spectrumWindow.version !== lastSpectrumVersion
+    && (pendingFileRestart || now - lastSpectrumAt >= 250)) {
+    latestSpectrum = spectrumWindow.analyze();
+    latestBandMetrics = summarizeFilterBands(latestSpectrum, {
+      highPassHz: 0.5,
+      notchHz: state.mainsHz,
+      notchQ: 30,
+      notchActive: state.pipeline.filters.notchActive,
+    });
+    latestTimeFrequency = spectrumMode === 'time-frequency' ? spectrumWindow.analyzeTimeFrequency() : null;
+    lastSpectrumVersion = spectrumWindow.version;
+    lastSpectrumAt = now;
+  }
+  if (!spectrumWindow.full) {
+    latestSpectrum = null;
+    latestTimeFrequency = null;
+    latestBandMetrics = null;
+  }
+  const leadName = LEAD_NAMES[state.detectionLead];
+  const alias = state.source.aliases?.[leadName];
+  const signalIndex = state.mode === 'file' ? state.source.mapping[state.detectionLead] : -1;
+  const declaredUnit = signalIndex >= 0 ? state.source.record.units[signalIndex] : null;
+  spectrumPlot.setContext({
+    source: state.mode === 'synthetic' ? 'Sintética' : `Real · ${state.meta?.record ?? 'registro'}`,
+    lead: alias ? `${leadName} (${alias})` : leadName,
+    fs: state.source.fs,
+    unit: !declaredUnit || declaredUnit.known ? 'mV' : declaredUnit.declared || 'unidade desconhecida',
+    filterDescription: state.pipeline.filters.description,
+  });
+  spectrumPlot.draw(latestSpectrum, latestTimeFrequency, latestBandMetrics, {
+    ready: spectrumWindow.full,
+    invalidated: spectrumWindow.invalidated,
+    paused: state.paused,
+    mode: spectrumMode,
+  });
   heart.update(state.signalTime);
 
   const det = state.pipeline.detector;
@@ -437,6 +510,10 @@ function frame(now) {
     ui.refStatus.textContent = '—';
   }
 
+  if (pendingFileRestart) {
+    state.source.reset();
+    buildPipeline(state.source.fs);
+  }
   requestAnimationFrame(frame);
 }
 
