@@ -102,6 +102,103 @@ main {
   width: 110px;
 }
 
+#heart-status .caution {
+  margin-top: 4px;
+  max-width: 300px;
+  font-size: 11px;
+  line-height: 1.3;
+  color: #ffb3c1;
+}
+
+#heart-tools {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--muted);
+  pointer-events: none;
+}
+
+#heart-tools > * { pointer-events: auto; }
+
+#heart-tools .toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  background: rgba(11, 15, 20, 0.75);
+  border-radius: 6px;
+  padding: 5px 8px;
+  width: fit-content;
+  max-width: 100%;
+}
+
+#heart-tools .toolbar .label { margin-right: 2px; }
+
+#heart-tools button {
+  background: #1a2430;
+  color: var(--text);
+  border: 1px solid #2b3947;
+  border-radius: 4px;
+  padding: 2px 7px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+#heart-tools button:hover { border-color: #7cc4ff; }
+
+#heart-tools label.inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 4px;
+  color: var(--text);
+}
+
+#heart-layers {
+  background: rgba(11, 15, 20, 0.8);
+  border-radius: 6px;
+  padding: 5px 8px;
+  width: fit-content;
+  max-width: 100%;
+}
+
+#heart-layers summary { cursor: pointer; color: var(--text); }
+
+#heart-layers .layer-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 5px;
+}
+
+#heart-layers .layer-row label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text);
+  min-width: 150px;
+}
+
+#heart-layers input[type="range"] { width: 90px; }
+
+#heart-layers select {
+  background: #1a2430;
+  color: var(--text);
+  border: 1px solid #2b3947;
+  border-radius: 4px;
+  font-size: 11px;
+  padding: 2px 4px;
+}
+
+#heart-layers .clip-row label { min-width: 0; }
+
+#heart-layers .note { margin: 6px 0 2px; color: var(--muted); }
+
 footer#controls {
   display: flex;
   flex-wrap: wrap;
@@ -170,4 +267,10 @@ footer input[type="file"] {
 
 @media (max-width: 900px) {
   main { grid-template-columns: 1fr; grid-template-rows: 3fr 2fr; }
+}
+
+@media (max-height: 900px) {
+  #heart-status { font-size: 12px; gap: 2px; padding: 6px 10px; }
+  #heart-status .label { width: 96px; }
+  #heart-status .caution { font-size: 10px; max-width: 260px; }
 }
