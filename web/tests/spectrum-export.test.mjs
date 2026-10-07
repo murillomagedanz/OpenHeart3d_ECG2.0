@@ -273,6 +273,8 @@ test('troca por arquivo local não exporta nome/cabeçalho; fim do registro limp
   assert.equal(result.unit, 'unknown');
   assert.equal(result.origin, 'real');
   a.run('step()');
+  assert.equal(a.elements.get('spectrum-export').disabled, false);
+  a.run('render(1000)');
   assert.equal(a.elements.get('spectrum-export').disabled, true);
   a.run(`manifest = { records: [{ id: 'mitdb/100', db: 'mitdb', record: '100' }] };
     state.source.record.header.signals[0].description = 'MLII';

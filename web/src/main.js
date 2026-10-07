@@ -54,12 +54,14 @@ let latestBandMetrics = null;
 let latestExportMetadata = null;
 let lastSpectrumVersion = -1;
 let lastSpectrumAt = 0;
+let pendingFileRestart = false;
 
 // --- Pipeline -----------------------------------------------------------------
 
 // Filtros, detector e traçado são reconstruídos na frequência da fonte: nada é
 // reamostrado. O SignalPipeline é o mesmo usado pelo benchmark em dados reais.
 function buildPipeline(fs) {
+  pendingFileRestart = false;
   state.pipeline = new SignalPipeline(fs, LEAD_NAMES.length, { notchHz: state.mainsHz, detectionLead: state.detectionLead });
   plot.reset(fs);
   spectrumWindow.reset(fs);
@@ -388,9 +390,8 @@ function step() {
       state.scorer.flush(Infinity);
       state.lastPass = state.scorer.snapshot();
     }
-    src.reset();
-    buildPipeline(src.fs);
-    return;
+    pendingFileRestart = true;
+    return false;
   }
   const s = src.next();
   // Mesmo passo de processamento do benchmark: amostras inválidas (sentinelas
@@ -444,7 +445,12 @@ function frame(now) {
     accumulator += dtReal * state.speed;
     const nSamples = Math.floor(accumulator * fs);
     accumulator -= nSamples / fs;
-    for (let i = 0; i < nSamples; i++) step();
+    for (let i = 0; i < nSamples; i++) {
+      if (step() === false) {
+        accumulator += (nSamples - i) / fs;
+        break;
+      }
+    }
   }
 
   plot.label = viewLabels()[state.viewMode];
@@ -453,7 +459,8 @@ function frame(now) {
   const alias = state.source.aliases?.[leadName];
   const signalIndex = state.mode === 'file' ? state.source.mapping[state.detectionLead] : -1;
   const declaredUnit = signalIndex >= 0 ? state.source.record.units[signalIndex] : null;
-  if (spectrumWindow.full && spectrumWindow.version !== lastSpectrumVersion && now - lastSpectrumAt >= 250) {
+  if (spectrumWindow.full && spectrumWindow.version !== lastSpectrumVersion
+    && (pendingFileRestart || now - lastSpectrumAt >= 250)) {
     latestSpectrum = spectrumWindow.analyze();
     const filters = {
       highPassHz: 0.5,
@@ -526,6 +533,10 @@ function frame(now) {
     ui.refStatus.textContent = '—';
   }
 
+  if (pendingFileRestart) {
+    state.source.reset();
+    buildPipeline(state.source.fs);
+  }
   requestAnimationFrame(frame);
 }
 

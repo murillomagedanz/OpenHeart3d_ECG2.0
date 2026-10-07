@@ -38,7 +38,7 @@ function fft(real, imag) {
   }
 }
 
-// One-sided peak amplitude spectrum in the input unit (mV), Hann windowed.
+// One-sided peak amplitude spectrum in the same unit as the input, Hann windowed.
 export function amplitudeSpectrum(samples, fs) {
   if (!Number.isFinite(fs) || fs <= 0) throw new RangeError('fs deve ser positiva e finita');
   if (!samples || samples.length < 3) throw new RangeError('O espectro exige ao menos três amostras');
@@ -83,8 +83,8 @@ export function summarizeFilterBands(spectra, { highPassHz = 0.5, notchHz = 60, 
   const nyquist = spectra.raw.fs / 2;
   const lowUpperHz = Math.min(highPassHz, nyquist);
   const notchHalfBandwidth = notchHz / (2 * notchQ);
-  const mainsLowerHz = Math.max(0, notchHz - notchHalfBandwidth);
-  const mainsUpperHz = Math.min(nyquist, notchHz + notchHalfBandwidth);
+  const nominalMainsLowerHz = Math.max(0, notchHz - notchHalfBandwidth);
+  const nominalMainsUpperHz = notchHz + notchHalfBandwidth;
   const summarize = (lowerHz, upperHz) => ({
     lowerHz,
     upperHz,
@@ -92,9 +92,26 @@ export function summarizeFilterBands(spectra, { highPassHz = 0.5, notchHz = 60, 
     filtered: peakInBand(spectra.filtered, lowerHz, upperHz),
     difference: peakInBand(spectra.difference, lowerHz, upperHz),
   });
+  const mains = nominalMainsLowerHz > nyquist
+    ? {
+      lowerHz: null,
+      upperHz: null,
+      raw: { frequency: null, amplitude: null },
+      filtered: { frequency: null, amplitude: null },
+      difference: { frequency: null, amplitude: null },
+      available: false,
+      centerHz: notchHz,
+      active: false,
+    }
+    : {
+      ...summarize(nominalMainsLowerHz, Math.min(nyquist, nominalMainsUpperHz)),
+      available: true,
+      centerHz: notchHz,
+      active: notchActive,
+    };
   return {
     low: summarize(0, lowUpperHz),
-    mains: { ...summarize(mainsLowerHz, mainsUpperHz), centerHz: notchHz, active: notchActive },
+    mains,
   };
 }
 
@@ -106,7 +123,7 @@ export function timeFrequencyAnalysis(raw, filtered, fs, { frameSeconds = 2, hop
   }
   const frameSamples = Math.round(frameSeconds * fs);
   const hopSamples = Math.round(hopSeconds * fs);
-  if (frameSamples < 2 || hopSamples < 1) throw new RangeError('Janela e avanço STFT inválidos');
+  if (frameSamples < 3 || hopSamples < 1) throw new RangeError('Janela e avanço STFT inválidos');
   if (raw.length < frameSamples) throw new RangeError('A janela de análise é curta para a STFT');
   const frameCount = Math.floor((raw.length - frameSamples) / hopSamples) + 1;
   const times = new Float64Array(frameCount);
@@ -161,7 +178,7 @@ export class SpectrumWindow {
     if (!Number.isFinite(fs) || fs <= 0) throw new RangeError('fs deve ser positiva e finita');
     this.fs = fs;
     this.length = Math.round(this.seconds * fs);
-    if (this.length < 2) throw new RangeError('A janela deve conter ao menos duas amostras');
+    if (this.length < 3) throw new RangeError('A janela deve conter ao menos três amostras');
     this.raw = new Float32Array(this.length);
     this.filtered = new Float32Array(this.length);
     this.count = 0;
