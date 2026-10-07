@@ -6,3 +6,9 @@ node_modules/
 # Registros WFDB baixados com 'npm run fetch-data' (web/). As amostras incluidas no
 # repositorio foram adicionadas com 'git add -f' (ver web/data/README.md).
 web/data/records/
+
+# Cofre de assets licenciados (web/assets/calib/): a chave e qualquer conteudo
+# decifrado ficam fora do git. Nunca use 'git add -f' nessas pastas.
+*.key
+.local/
+web/assets/calib/local*

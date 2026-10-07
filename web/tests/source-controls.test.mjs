@@ -27,6 +27,7 @@ function app() {
     },
     createElement: element,
     createTextNode: (textContent) => ({ textContent }),
+    querySelectorAll: () => [],
   };
   class View {
     reset() {}
@@ -36,6 +37,9 @@ function app() {
     document, Node: class {}, LEAD_NAMES, SyntheticSource, SignalPipeline,
     EcgPlot: View, Heart3D: View, performance: { now: () => 0 },
     requestAnimationFrame() {}, console,
+    loadRuntimeAsset: async () => null, isDevHost: () => false,
+    ResizeObserver: class { observe() {} },
+    window: { addEventListener() {} },
     fetch: async () => { throw new Error('offline'); },
   });
   vm.runInContext(code, context);

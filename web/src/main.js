@@ -6,6 +6,7 @@ import { loadRecord } from './io/wfdb.js';
 import { FileSource } from './io/fileSource.js';
 import { EcgPlot } from './view/ecgPlot.js';
 import { Heart3D } from './view/heart3d.js';
+import { loadRuntimeAsset, isDevHost } from './view/assetVault.js';
 
 const SYNTH_FS = 500;
 const SCORER_WARMUP_S = 1.0;
@@ -19,6 +20,8 @@ const ui = {
   recordStatus: $('record-status'), refStatus: $('ref-status'),
   banner: $('data-banner'), synthControls: $('ctl-synth'), recordControls: [$('ctl-record'), $('ctl-open')],
   recordInfo: $('record-info'), recordInfoBody: $('record-info-body'),
+  modelLabel: $('model-label'), autoRotate: $('auto-rotate'), xray: $('xray'),
+  clipOn: $('clip-on'), clipAxis: $('clip-axis'), clipPos: $('clip-pos'),
 };
 
 const SYNTH_BANNER = 'DADOS SINTÉTICOS — simulação didática. Não é dispositivo médico, não realiza diagnóstico. '
@@ -297,6 +300,40 @@ ui.source.addEventListener('change', async () => {
 ui.record.addEventListener('change', () => loadManifestRecord(ui.record.value));
 ui.openFiles.addEventListener('change', () => loadLocalFiles(ui.openFiles.files));
 
+// --- Coração 3D: vistas, camadas, raio-X e corte (filtros de exibição, não medidas) ----
+
+for (const btn of document.querySelectorAll('#heart-tools [data-view]')) {
+  btn.addEventListener('click', () => heart.setView(btn.dataset.view));
+}
+ui.autoRotate.addEventListener('change', () => heart.setAutoRotate(ui.autoRotate.checked));
+for (const cb of document.querySelectorAll('#heart-layers [data-layer]')) {
+  cb.addEventListener('change', () => heart.setLayerVisible(cb.dataset.layer, cb.checked));
+}
+for (const sl of document.querySelectorAll('#heart-layers [data-layer-opacity]')) {
+  sl.addEventListener('input', () => heart.setLayerOpacity(sl.dataset.layerOpacity, Number(sl.value) / 100));
+}
+ui.xray.addEventListener('change', () => heart.setXray(ui.xray.checked));
+const syncClip = () => heart.setClip({ enabled: ui.clipOn.checked, axis: ui.clipAxis.value, position: Number(ui.clipPos.value) / 100 });
+ui.clipOn.addEventListener('change', syncClip);
+ui.clipAxis.addEventListener('change', syncClip);
+ui.clipPos.addEventListener('input', syncClip);
+
+// Modelo anatômico opcional: só existe cifrado no repositório. Sem chave, nada acontece e
+// o procedural segue como modelo padrão. O GLB decifrado fica apenas em memória.
+async function loadOptionalModel() {
+  const asset = await loadRuntimeAsset();
+  if (!asset) return;
+  try {
+    const { GLTFLoader } = await import('three/addons/loaders/GLTFLoader.js');
+    const gltf = await new Promise((resolve, reject) => new GLTFLoader().parse(asset.buffer, '', resolve, reject));
+    heart.setModel(gltf);
+    ui.modelLabel.textContent = heart.modelLabel;
+    ui.modelLabel.title = heart.hasAnimatedModel ? 'clipes de animação com o tempo posicionado pelo ECG (nunca autoplay)' : '';
+  } catch (err) {
+    if (isDevHost()) console.info('[calib] modelo opcional não carregado; segue o procedural:', err.message);
+  }
+}
+
 // --- Laço principal -------------------------------------------------------------------
 
 const viewLabels = () => ({
@@ -404,4 +441,12 @@ function frame(now) {
 }
 
 useSynthetic();
+ui.modelLabel.textContent = heart.modelLabel;
+// O painel de estado cobre a base do quadro 3D: o coração é centralizado na área livre.
+const heartStatus = $('heart-status');
+new ResizeObserver(() => heart.setBottomInset(heartStatus.getBoundingClientRect().height + 10)).observe(heartStatus);
 requestAnimationFrame(frame);
+loadOptionalModel();
+// Chave colada na barra de endereço com a página já aberta (#k=…): tenta de novo.
+window.addEventListener('hashchange', () => { if (/(?:^#|[#&])k=/.test(location.hash)) loadOptionalModel(); });
+if (isDevHost()) globalThis.__oh3d = { heart, state }; // inspeção em desenvolvimento (console/testes)
