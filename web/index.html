@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>OpenHeart3D ECG 2.0 — Protótipo</title>
+  <link rel="icon" href="data:," />
   <link rel="stylesheet" href="styles.css" />
   <script type="importmap">
     {
@@ -32,6 +33,35 @@
 
     <section id="heart-panel">
       <div id="heart-canvas"></div>
+      <div id="heart-tools">
+        <div class="toolbar" role="group" aria-label="Vistas predefinidas do coração 3D">
+          <span class="label">Vista</span>
+          <button type="button" data-view="anterior" title="Anterior (frente do paciente)">Anterior</button>
+          <button type="button" data-view="posterior" title="Posterior">Posterior</button>
+          <button type="button" data-view="esquerda" title="Lateral esquerda do paciente">Esq.</button>
+          <button type="button" data-view="direita" title="Lateral direita do paciente">Dir.</button>
+          <button type="button" data-view="superior" title="Superior (base do coração)">Base</button>
+          <button type="button" data-view="inferior" title="Inferior (ápice)">Ápice</button>
+          <label class="inline" title="Gira a câmera em torno do eixo central do coração"><input type="checkbox" id="auto-rotate" /> giro</label>
+        </div>
+        <details id="heart-layers">
+          <summary>Camadas e corte</summary>
+          <div class="layer-row"><label><input type="checkbox" data-layer="ventriculos" checked /> Ventrículos</label><input type="range" data-layer-opacity="ventriculos" min="0" max="100" value="100" aria-label="Opacidade dos ventrículos" /></div>
+          <div class="layer-row"><label><input type="checkbox" data-layer="atrios" checked /> Átrios / topo</label><input type="range" data-layer-opacity="atrios" min="0" max="100" value="100" aria-label="Opacidade dos átrios" /></div>
+          <div class="layer-row"><label><input type="checkbox" data-layer="vasos" checked /> Aorta / grandes vasos</label><input type="range" data-layer-opacity="vasos" min="0" max="100" value="100" aria-label="Opacidade dos grandes vasos" /></div>
+          <div class="layer-row"><label><input type="checkbox" id="xray" /> Raio-X (transparente + malha)</label></div>
+          <div class="layer-row clip-row">
+            <label><input type="checkbox" id="clip-on" /> Corte</label>
+            <select id="clip-axis" aria-label="Eixo do plano de corte">
+              <option value="x">plano ≈ sagital (eixo X)</option>
+              <option value="y">plano ≈ transversal (eixo Y)</option>
+              <option value="z">plano ≈ coronal (eixo Z)</option>
+            </select>
+            <input type="range" id="clip-pos" min="-100" max="100" value="0" aria-label="Posição do plano de corte" />
+          </div>
+          <p class="note">Vistas, camadas e corte são filtros de exibição, não medidas.</p>
+        </details>
+      </div>
       <div id="heart-status">
         <div><span class="label">FC detectada</span><span id="hr-detected">—</span></div>
         <div><span class="label">RR médio</span><span id="rr-mean">—</span></div>
@@ -39,6 +69,8 @@
         <div><span class="label">Fase estimada</span><span id="phase">—</span></div>
         <div><span class="label">Registro</span><span id="record-status">—</span></div>
         <div><span class="label">Referência</span><span id="ref-status">—</span></div>
+        <div class="model-line"><span class="label">Modelo 3D</span><span id="model-label">procedural didático</span></div>
+        <div class="caution">A animação indica sincronização temporal com eventos detectados; não representa anatomia, contratilidade ou força reais.</div>
       </div>
     </section>
   </main>
