@@ -38,12 +38,14 @@
             <button type="button" data-spectrum-mode="frequency" aria-pressed="true">Frequência</button>
             <button type="button" data-spectrum-mode="time-frequency" aria-pressed="false">Tempo-frequência</button>
           </div>
+          <button type="button" id="spectrum-export" disabled aria-describedby="spectrum-export-status">Exportar JSON</button>
           <span id="spectrum-status" aria-live="polite">Aguardando 10 s contínuos válidos</span>
         </div>
         <canvas id="spectrum-canvas" role="img" aria-label="Espectros de amplitude unilateral de bruto, filtrado e diferença calculados sobre a mesma janela de 10 segundos">
           Análise espectral indisponível: este navegador não suporta canvas.
         </canvas>
         <div id="spectrum-metrics" aria-live="polite"></div>
+        <span id="spectrum-export-status" role="status">Exportação indisponível: aguarde uma janela completa de 10 s válidos.</span>
       </section>
     </section>
 
