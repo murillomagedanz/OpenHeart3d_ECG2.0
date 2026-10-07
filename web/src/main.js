@@ -5,8 +5,10 @@ import { SpectrumWindow, summarizeFilterBands } from './ecg/spectrum.js';
 import { OnlineScorer, DEFAULT_TOLERANCE_S } from './ecg/scoring.js';
 import { loadRecord } from './io/wfdb.js';
 import { FileSource } from './io/fileSource.js';
+import { safeSpectrumMetadata } from './io/spectrumExport.js';
 import { EcgPlot } from './view/ecgPlot.js';
 import { SpectrumPlot } from './view/spectrumPlot.js';
+import { SpectrumExportControl } from './view/spectrumExportControl.js';
 import { Heart3D } from './view/heart3d.js';
 import { loadRuntimeAsset, isDevHost } from './view/assetVault.js';
 
@@ -34,6 +36,7 @@ const SYNTH_BANNER = 'DADOS SINTÉTICOS — simulação didática. Não é dispo
 const plot = new EcgPlot($('ecg-canvas'), SYNTH_FS);
 const spectrumWindow = new SpectrumWindow(SYNTH_FS);
 const spectrumPlot = new SpectrumPlot(ui.spectrumCanvas, ui.spectrumStatus, ui.spectrumMetrics);
+const spectrumExport = new SpectrumExportControl($('spectrum-export'), $('spectrum-export-status'));
 const heart = new Heart3D($('heart-canvas'));
 let spectrumMode = 'frequency';
 
@@ -41,13 +44,14 @@ const state = {
   paused: false, speed: 1, viewMode: 'filtered', mainsHz: 60,
   mode: 'synthetic', source: null, pipeline: null, scorer: null,
   detectionLead: LEAD_NAMES.indexOf('II'), nextBeat: 0, scoredUntil: Infinity,
-  signalTime: 0, lastQrsT: null, meta: null,
+  signalTime: 0, signalIndex: -1, lastQrsT: null, meta: null,
   lastPass: null, // escore fechado da última reprodução completa do registro
 };
 let manifest = null;
 let latestSpectrum = null;
 let latestTimeFrequency = null;
 let latestBandMetrics = null;
+let latestExportMetadata = null;
 let lastSpectrumVersion = -1;
 let lastSpectrumAt = 0;
 
@@ -62,6 +66,9 @@ function buildPipeline(fs) {
   latestSpectrum = null;
   latestTimeFrequency = null;
   latestBandMetrics = null;
+  latestExportMetadata = null;
+  spectrumExport.setDataset(null);
+  state.signalIndex = -1;
   lastSpectrumVersion = -1;
   lastSpectrumAt = 0;
   heart.reset();
@@ -289,6 +296,8 @@ for (const button of document.querySelectorAll('[data-spectrum-mode]')) {
       option.setAttribute('aria-pressed', String(option === button));
     }
     lastSpectrumVersion = -1;
+    lastSpectrumAt = -Infinity;
+    spectrumExport.setDataset(null);
   });
 }
 ui.speed.addEventListener('change', () => { state.speed = Number(ui.speed.value); });
@@ -391,6 +400,7 @@ function step() {
   // gerador nem as anotações.
   const { filtered, mask, event: ev } = state.pipeline.step(s);
   state.signalTime = s.t;
+  state.signalIndex = s.index ?? Math.round(s.t * src.fs);
 
   plot.push(s.leads, filtered, mask);
   spectrumWindow.push(
@@ -439,13 +449,25 @@ function frame(now) {
 
   plot.label = viewLabels()[state.viewMode];
   plot.draw();
+  const leadName = LEAD_NAMES[state.detectionLead];
+  const alias = state.source.aliases?.[leadName];
+  const signalIndex = state.mode === 'file' ? state.source.mapping[state.detectionLead] : -1;
+  const declaredUnit = signalIndex >= 0 ? state.source.record.units[signalIndex] : null;
   if (spectrumWindow.full && spectrumWindow.version !== lastSpectrumVersion && now - lastSpectrumAt >= 250) {
     latestSpectrum = spectrumWindow.analyze();
-    latestBandMetrics = summarizeFilterBands(latestSpectrum, {
+    const filters = {
       highPassHz: 0.5,
       notchHz: state.mainsHz,
       notchQ: 30,
       notchActive: state.pipeline.filters.notchActive,
+    };
+    latestBandMetrics = summarizeFilterBands(latestSpectrum, filters);
+    latestExportMetadata = safeSpectrumMetadata({
+      origin: state.mode === 'synthetic' ? 'synthetic' : 'real',
+      catalogRecord: state.mode === 'file' ? manifest?.records.find((r) => r.id === state.meta.id) : null,
+      lead: leadName, alias, fs: state.source.fs,
+      unit: !declaredUnit || declaredUnit.known ? 'mV' : declaredUnit.declared,
+      endIndex: state.signalIndex + 1, sampleCount: latestSpectrum.raw.sampleCount, filters,
     });
     latestTimeFrequency = spectrumMode === 'time-frequency' ? spectrumWindow.analyzeTimeFrequency() : null;
     lastSpectrumVersion = spectrumWindow.version;
@@ -455,11 +477,12 @@ function frame(now) {
     latestSpectrum = null;
     latestTimeFrequency = null;
     latestBandMetrics = null;
+    latestExportMetadata = null;
   }
-  const leadName = LEAD_NAMES[state.detectionLead];
-  const alias = state.source.aliases?.[leadName];
-  const signalIndex = state.mode === 'file' ? state.source.mapping[state.detectionLead] : -1;
-  const declaredUnit = signalIndex >= 0 ? state.source.record.units[signalIndex] : null;
+  spectrumExport.setDataset(latestSpectrum && latestExportMetadata ? {
+    metadata: latestExportMetadata, spectra: latestSpectrum,
+    timeFrequency: spectrumMode === 'time-frequency' ? latestTimeFrequency : null,
+  } : null, spectrumWindow.invalidated);
   spectrumPlot.setContext({
     source: state.mode === 'synthetic' ? 'Sintética' : `Real · ${state.meta?.record ?? 'registro'}`,
     lead: alias ? `${leadName} (${alias})` : leadName,

@@ -61,6 +61,23 @@ As medidas compactas de conteúdo em frequência exibem os picos (frequência e 
 
 Ao iniciar ou trocar/reiniciar uma fonte (inclusive após o fim de um arquivo), a janela anterior é descartada e o painel aguarda 10 s novos. Uma lacuna ou valor inválido limpa a janela inteira: não há interpolação nem espectro até haver 10 s consecutivos válidos. Sinais de menos de 10 s permanecem sem resultado. Trata-se de descrição matemática, sem diagnóstico, interpretação clínica ou classificação automática de artefatos.
 
+### Exportação local de resultados (JSON v1)
+
+**Exportar JSON** baixa a última análise calculada e apresentada no painel (atualização a cada 250 ms), sem enviar nada à rede. Só fica habilitado após uma janela válida completa; o motivo da indisponibilidade aparece junto ao botão. A pausa mantém os resultados exportáveis. Troca/reinício da fonte, mudança do notch e lacunas descartam o export anterior. Selecionar **Tempo-frequência** inclui a STFT da mesma janela; em **Frequência**, o campo `stft` não é incluído.
+
+O arquivo usa `schema: "openheart3d.ecg.spectral-analysis"` e `version: 1`. Campos:
+
+- `exportedAt`: instante ISO/UTC da solicitação do download; `origin`: `synthetic` ou `real`; `recordId`: identificador público `banco:registro` validado do catálogo, ou `null` para fontes sintéticas/arquivos locais.
+- `lead`: nome padrão e alias reconhecido (MLII, ML2, MLI, MLIII, AVR/AVL/AVF ou C1–C6); nomes livres ficam `null`. `fs` é nativa e `unit` é a unidade de amplitude convertida (`mV` quando conhecida); declarações fora da lista segura mV/uV/µV/μV/V/adu ficam `unknown`.
+- `window`: contagem, duração `N/fs`, índices inteiros base zero (`startIndex` inclusivo, `endIndexExclusive` exclusivo) na fonte, tempos em segundos desde o início da fonte e tempo da última amostra. Não contém amostras do sinal.
+- `filters`: tipo/corte do passa-alta e tipo/frequência/Q/estado ativo do notch. `spectralMethod`: Hann, sem remoção de DC, FFT radix-2, preenchimento até a próxima potência de dois, amplitude pico unilateral, normalização pela soma dos pesos Hann (dobro exceto DC/Nyquist), tamanho FFT e resolução `fs/FFT`.
+- `spectra`: eixo completo `frequencyHz` e arrays numéricos `amplitude.raw`, `.filtered`, `.difference`. A diferença é o espectro de **bruto − filtrado**, não a subtração das amplitudes. `bandMetrics`: limites e picos nas bandas passa-alta/notch, incluindo estado nominal/inativo.
+- `stft` (opcional): método, número de quadros, quadro/avanço em amostras e segundos, política de quadros completos, eixo de frequência, centros temporais relativos à janela e absolutos à fonte, matrizes de amplitude **quadro × frequência** para as três séries. Exporta amplitude física, não as cores/dB do gráfico.
+
+A serialização constrói uma lista explícita de campos e converte typed arrays em arrays JSON, sem copiar objetos de fonte/cabeçalho. Nunca inclui caminhos/nomes de arquivos locais, anotações, rótulos, comentários WFDB, dados pessoais ou chave do cofre. O arquivo recebe nome seguro; o download usa `Blob`/`ObjectURL` local e libera a URL após disparar o clique. A mensagem confirma apenas que o download foi solicitado, não que o navegador salvou o arquivo.
+
+O contrato preserva resultados e parâmetros de análise para comparação reprodutível; **não permite reconstruir o sinal original ou repetir a captura sintética aleatória**, pois as amostras não são exportadas. Mesma análise e mesma data produzem o mesmo JSON. Não há importação, upload, backend ou dependência nova (D14).
+
 ## Testar
 
 ```powershell
@@ -81,6 +98,7 @@ npm run bench:real   # só os registros reais anotados presentes em data/records
 - `filters.test.mjs` — notch atenua a rede e preserva o ECG; é desativado (e a descrição avisa) quando fs ≤ 2 × f0, em vez de divergir.
 - `gaps.test.mjs` — lacunas de amostras inválidas: filtros e detector não avançam, são re-armados na retomada sem transiente, o RR através da lacuna não entra na média; inclui a comparação com o comportamento antigo (sample-and-hold), que gerava falso positivo na retomada.
 - `spectrum.test.mjs` — escala unilateral com tom conhecido, janela comum e descarte após lacuna, efeito em bandas dos filtros, STFT localizando tons em instantes diferentes, e espectros/métricas/quadros finitos em registros reais MIT-BIH 360 Hz e PTB-XL/LUDB 500 Hz na fs nativa.
+- `spectrum-export.test.mjs` — contrato JSON v1, arrays numéricos completos, parâmetros e coordenadas reproduzíveis, STFT alinhada, allowlist sem amostras/campos incidentais; integração do `main.js` com download mock sem rede, janela incompleta/lacuna, pausa, troca de modo/fonte, reinício e liberação de ObjectURL, inclusive em falha.
 - `envelopes.test.mjs` — envelopes de contração e a tradução envelope → tempo de clipe (`clipTime`): pose relaxada fora da janela, contraído em `peak` na sustentação, descida pela trajetória do autor até `duration`.
 - `vault.test.mjs` — cofre: ida e volta em dados sintéticos com fatias pequenas forçadas, chave errada recusada, fatia corrompida/truncada apontada pelo nome, decodificador do navegador (WebCrypto) abrindo o conjunto gerado pelo Node, leitor zip mínimo com zip aninhado; e a **guarda contra vazamento**, que percorre todos os arquivos rastreados pelo git e falha se algum começar com assinatura de cena binária/arquivo de modelagem/TIFF/EXR/glTF, tiver extensão de modelo 3D, for uma chave, estiver em `assets/calib/` sem ser bloco cifrado de alta entropia, for imagem fora de `docs/`/`web/vendor/` ou citar um termo de proveniência (comparado por hash).
 
@@ -140,6 +158,7 @@ FileSource ──────┘    (PA 0,5 Hz +        (Pan–Tompkins       (s
 - `src/io/fileSource.js` — reprodução do registro na frequência nativa; mapeia MLII → II, C1–C6 → V1–V6, nomes em minúsculas e registros genéricos de 1–2 canais; escolhe a derivação de detecção (II, senão a primeira disponível); entrega a máscara de amostras inválidas por derivação.
 - `src/view/ecgPlot.js` — papel 25 mm/s · 10 mm/mV, varredura, células "sem sinal" para derivações ausentes, tira de ritmo com marcas de QRS detectado e de referência. Guarda bruto e filtrado de cada amostra e escolhe o modo (bruto | filtrado | diferença) na hora de desenhar, então trocar de modo redesenha o histórico inteiro de imediato, mesmo em pausa.
 - `src/view/spectrumPlot.js` — desenha os três espectros e explicita fonte, derivação, `fs`, filtros, janela e resolução; deixa o painel sem curva durante janela insuficiente ou após lacuna.
+- `src/io/spectrumExport.js` — contrato de export JSON v1: allowlist de metadados, validação de alinhamento, arrays completos e nome seguro. `src/view/spectrumExportControl.js` — disponibilidade acessível e download local com liberação da URL.
 - `src/view/envelopes.js` — envelopes de contração (ventricular no R detectado; atrial estimada pelo RR) e `clipTime()`, que traduz o envelope em instante de um clipe de animação. Sem DOM: testado no Node.
 - `src/view/heart3d.js` — coração 3D (Three.js): modelo procedural padrão e, opcionalmente, modelo anatômico carregado por `setModel(gltf)` (nós mapeados em camadas; clipes com tempo posicionado pelo ECG via `AnimationMixer`, nunca autoplay; centralização, alinhamento do eixo longo e normalização de tamanho). Câmera com alvo fixo, vistas predefinidas, giro automático, camadas/opacidade, raio-X e plano de corte.
 - `src/view/assetVault.js` — acesso ao asset cifrado: descobre a chave (`#k=`, `localStorage`, `local.key` em host local), decifra índice e fatias com WebCrypto (AES-256-GCM), confere SHA-256 e devolve o GLB só em memória; sem chave ou com falha, devolve `null` em silêncio (aviso discreto no console apenas em host local).
