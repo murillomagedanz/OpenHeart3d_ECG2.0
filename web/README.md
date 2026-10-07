@@ -49,13 +49,17 @@ Seis registros vêm no repositório (PTB-XL normal / fibrilação atrial / bloqu
 
 Quando o registro tem anotações de batimento, a tira de ritmo mostra as marcas **amarelas (QRS detectado)** acima e as **azuis (referência anotada)** abaixo, e o painel conta TP / FP / FN ao vivo (janela ±150 ms, ANSI/AAMI EC57). Uma referência só vira FN depois do pior atraso possível do detector (no search-back, 1,66 × RR), para que o escore ao vivo concorde com o offline. Ao chegar ao fim do registro a contagem é fechada (pendências viram FN/FP), o resultado da passagem completa fica exibido e a reprodução recomeça do zero. O detector nunca vê as anotações; elas servem só para pontuá-lo.
 
-## Análise espectral (primeira entrega da etapa 3)
+## Análise espectral (etapa 3)
 
 O painel sob o traçado mostra simultaneamente os espectros de **bruto**, **filtrado** e **diferença (bruto − filtrado)** para a derivação da tira de ritmo/detecção: II quando disponível, senão a primeira derivação disponível. A janela é móvel, tem 10 s completos e consecutivos; os três sinais usam exatamente os mesmos índices e `fs` nativa da fonte. O processamento existente e o seletor bruto/filtrado/diferença do traçado não são alterados.
 
-Parâmetros apresentados no painel: derivação/alias, fonte/registro, frequência de amostragem, configuração dos filtros, janela Hann, ausência de remoção de DC, número de amostras, tamanho da FFT e resolução em Hz. A FFT radix-2 é preenchida com zeros até a próxima potência de dois; a escala de amplitude unilateral é expressa em mV. Cada faixa do gráfico usa escala vertical própria e o maior valor da faixa aparece como referência. A transformada é atualizada durante a reprodução e fica congelada em pausa.
+Parâmetros apresentados no painel: derivação/alias, fonte/registro, unidade declarada, frequência de amostragem, configuração dos filtros, janela Hann, ausência de remoção de DC, número de amostras, tamanho da FFT e resolução em Hz. A FFT radix-2 é preenchida com zeros até a próxima potência de dois; a escala de amplitude unilateral usa a unidade física decodificada (mV para tensão com unidade conhecida). Se o WFDB declarar unidade desconhecida, ela é exibida como declarada e os valores não são rotulados falsamente como mV. Cada faixa do gráfico usa escala vertical própria e o maior valor da faixa aparece como referência. A transformada é atualizada durante a reprodução e fica congelada em pausa.
 
-Ao iniciar ou trocar/reiniciar uma fonte (inclusive após o fim de um arquivo), a janela anterior é descartada e o painel aguarda 10 s novos. Uma lacuna ou valor inválido limpa a janela inteira: não há interpolação nem espectro até haver 10 s consecutivos válidos. Sinais de menos de 10 s permanecem sem espectro. É uma descrição matemática do sinal, não separa automaticamente fisiologia de ruído e não sustenta inferência clínica; esta entrega não inclui análise tempo-frequência nem avaliação ampla de artefatos.
+O botão **Tempo-frequência** mostra três espectrogramas alinhados calculados por STFT sobre a mesma janela. Cada quadro usa Hann de 2 s, avanço de 1 s, zero-padding radix-2 e a fs nativa; a escala de cor é comum às três séries, relativa ao maior pico da janela, de 0 a −60 dB. A resolução e os parâmetros do quadro/avanço aparecem no painel. As bordas mostram apenas quadros completos (9 quadros para a janela de 10 s).
+
+As medidas compactas de conteúdo em frequência exibem os picos (frequência e amplitude) em duas bandas ligadas aos filtros configurados: 0 até o corte do passa-alta e a largura nominal f0/Q ao redor da frequência central do notch (Q=30). Se o notch estiver desativado por fs baixa, a banda aparece como nominal/inativa. São descritores do conteúdo e sua mudança pelo filtro, não detectores de artefato nem evidência de origem fisiológica.
+
+Ao iniciar ou trocar/reiniciar uma fonte (inclusive após o fim de um arquivo), a janela anterior é descartada e o painel aguarda 10 s novos. Uma lacuna ou valor inválido limpa a janela inteira: não há interpolação nem espectro até haver 10 s consecutivos válidos. Sinais de menos de 10 s permanecem sem resultado. Trata-se de descrição matemática, sem diagnóstico, interpretação clínica ou classificação automática de artefatos.
 
 ## Testar
 
@@ -76,7 +80,7 @@ npm run bench:real   # só os registros reais anotados presentes em data/records
 - `scoring.test.mjs` — escore ao vivo vs. offline, inclusive com detecção atrasada por search-back e fechamento no fim do registro.
 - `filters.test.mjs` — notch atenua a rede e preserva o ECG; é desativado (e a descrição avisa) quando fs ≤ 2 × f0, em vez de divergir.
 - `gaps.test.mjs` — lacunas de amostras inválidas: filtros e detector não avançam, são re-armados na retomada sem transiente, o RR através da lacuna não entra na média; inclui a comparação com o comportamento antigo (sample-and-hold), que gerava falso positivo na retomada.
-- `spectrum.test.mjs` — escala unilateral com tom de frequência conhecida, janela comum de 10 s, descarte após lacuna, atenuação/preservação esperada com filtros em sinais sintéticos e espectro finito de um trecho real na frequência nativa.
+- `spectrum.test.mjs` — escala unilateral com tom conhecido, janela comum e descarte após lacuna, efeito em bandas dos filtros, STFT localizando tons em instantes diferentes, e espectros/métricas/quadros finitos em registros reais MIT-BIH 360 Hz e PTB-XL/LUDB 500 Hz na fs nativa.
 - `envelopes.test.mjs` — envelopes de contração e a tradução envelope → tempo de clipe (`clipTime`): pose relaxada fora da janela, contraído em `peak` na sustentação, descida pela trajetória do autor até `duration`.
 - `vault.test.mjs` — cofre: ida e volta em dados sintéticos com fatias pequenas forçadas, chave errada recusada, fatia corrompida/truncada apontada pelo nome, decodificador do navegador (WebCrypto) abrindo o conjunto gerado pelo Node, leitor zip mínimo com zip aninhado; e a **guarda contra vazamento**, que percorre todos os arquivos rastreados pelo git e falha se algum começar com assinatura de cena binária/arquivo de modelagem/TIFF/EXR/glTF, tiver extensão de modelo 3D, for uma chave, estiver em `assets/calib/` sem ser bloco cifrado de alta entropia, for imagem fora de `docs/`/`web/vendor/` ou citar um termo de proveniência (comparado por hash).
 
@@ -157,6 +161,6 @@ FileSource ──────┘    (PA 0,5 Hz +        (Pan–Tompkins       (s
 ## Próximos passos sugeridos
 
 1. Detecção de ondas P e T (o LUDB fornece a referência anotada) para substituir a estimativa atrial pelo RR.
-2. Avaliar separadamente qualquer extensão do painel espectral; tempo-frequência e análise ampla de artefatos não fazem parte desta entrega.
+2. A etapa 3 está concluída no escopo documentado; qualquer método de artefato que classifique ou interprete sinais deve ser proposto e validado separadamente.
 3. Rodar o benchmark nos 48 registros do MIT-BIH (`npm run fetch-data -- mitdb/<n>`) e publicar a tabela completa.
 4. Leitores EDF e CSV para dispositivos próprios.

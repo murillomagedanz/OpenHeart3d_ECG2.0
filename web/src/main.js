@@ -1,7 +1,7 @@
 import { LEAD_NAMES } from './ecg/leads.js';
 import { SyntheticSource } from './ecg/synth.js';
 import { SignalPipeline } from './ecg/pipeline.js';
-import { SpectrumWindow } from './ecg/spectrum.js';
+import { SpectrumWindow, summarizeFilterBands } from './ecg/spectrum.js';
 import { OnlineScorer, DEFAULT_TOLERANCE_S } from './ecg/scoring.js';
 import { loadRecord } from './io/wfdb.js';
 import { FileSource } from './io/fileSource.js';
@@ -25,6 +25,7 @@ const ui = {
   modelLabel: $('model-label'), autoRotate: $('auto-rotate'), xray: $('xray'),
   clipOn: $('clip-on'), clipAxis: $('clip-axis'), clipPos: $('clip-pos'),
   spectrumCanvas: $('spectrum-canvas'), spectrumStatus: $('spectrum-status'),
+  spectrumMetrics: $('spectrum-metrics'),
 };
 
 const SYNTH_BANNER = 'DADOS SINTÉTICOS — simulação didática. Não é dispositivo médico, não realiza diagnóstico. '
@@ -32,8 +33,9 @@ const SYNTH_BANNER = 'DADOS SINTÉTICOS — simulação didática. Não é dispo
 
 const plot = new EcgPlot($('ecg-canvas'), SYNTH_FS);
 const spectrumWindow = new SpectrumWindow(SYNTH_FS);
-const spectrumPlot = new SpectrumPlot(ui.spectrumCanvas, ui.spectrumStatus);
+const spectrumPlot = new SpectrumPlot(ui.spectrumCanvas, ui.spectrumStatus, ui.spectrumMetrics);
 const heart = new Heart3D($('heart-canvas'));
+let spectrumMode = 'frequency';
 
 const state = {
   paused: false, speed: 1, viewMode: 'filtered', mainsHz: 60,
@@ -44,6 +46,8 @@ const state = {
 };
 let manifest = null;
 let latestSpectrum = null;
+let latestTimeFrequency = null;
+let latestBandMetrics = null;
 let lastSpectrumVersion = -1;
 let lastSpectrumAt = 0;
 
@@ -56,6 +60,8 @@ function buildPipeline(fs) {
   plot.reset(fs);
   spectrumWindow.reset(fs);
   latestSpectrum = null;
+  latestTimeFrequency = null;
+  latestBandMetrics = null;
   lastSpectrumVersion = -1;
   lastSpectrumAt = 0;
   heart.reset();
@@ -276,6 +282,15 @@ ui.viewMode.addEventListener('change', () => {
   state.viewMode = ui.viewMode.value;
   plot.setMode(state.viewMode); // o traçado guarda bruto e filtrado: redesenha o histórico no novo modo
 });
+for (const button of document.querySelectorAll('[data-spectrum-mode]')) {
+  button.addEventListener('click', () => {
+    spectrumMode = button.dataset.spectrumMode;
+    for (const option of document.querySelectorAll('[data-spectrum-mode]')) {
+      option.setAttribute('aria-pressed', String(option === button));
+    }
+    lastSpectrumVersion = -1;
+  });
+}
 ui.speed.addEventListener('change', () => { state.speed = Number(ui.speed.value); });
 ui.pause.addEventListener('click', () => {
   state.paused = !state.paused;
@@ -426,22 +441,37 @@ function frame(now) {
   plot.draw();
   if (spectrumWindow.full && spectrumWindow.version !== lastSpectrumVersion && now - lastSpectrumAt >= 250) {
     latestSpectrum = spectrumWindow.analyze();
+    latestBandMetrics = summarizeFilterBands(latestSpectrum, {
+      highPassHz: 0.5,
+      notchHz: state.mainsHz,
+      notchQ: 30,
+      notchActive: state.pipeline.filters.notchActive,
+    });
+    latestTimeFrequency = spectrumMode === 'time-frequency' ? spectrumWindow.analyzeTimeFrequency() : null;
     lastSpectrumVersion = spectrumWindow.version;
     lastSpectrumAt = now;
   }
-  if (!spectrumWindow.full) latestSpectrum = null;
+  if (!spectrumWindow.full) {
+    latestSpectrum = null;
+    latestTimeFrequency = null;
+    latestBandMetrics = null;
+  }
   const leadName = LEAD_NAMES[state.detectionLead];
   const alias = state.source.aliases?.[leadName];
+  const signalIndex = state.mode === 'file' ? state.source.mapping[state.detectionLead] : -1;
+  const declaredUnit = signalIndex >= 0 ? state.source.record.units[signalIndex] : null;
   spectrumPlot.setContext({
     source: state.mode === 'synthetic' ? 'Sintética' : `Real · ${state.meta?.record ?? 'registro'}`,
     lead: alias ? `${leadName} (${alias})` : leadName,
     fs: state.source.fs,
+    unit: !declaredUnit || declaredUnit.known ? 'mV' : declaredUnit.declared || 'unidade desconhecida',
     filterDescription: state.pipeline.filters.description,
   });
-  spectrumPlot.draw(latestSpectrum, {
+  spectrumPlot.draw(latestSpectrum, latestTimeFrequency, latestBandMetrics, {
     ready: spectrumWindow.full,
     invalidated: spectrumWindow.invalidated,
     paused: state.paused,
+    mode: spectrumMode,
   });
   heart.update(state.signalTime);
 
