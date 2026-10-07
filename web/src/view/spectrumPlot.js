@@ -6,10 +6,13 @@ function formatPeak(peak, unit) {
 }
 
 function formatBand(name, band, unit) {
+  if (!band.available && band.lowerHz === null) return `${name} fora da faixa analisada · sem medida`;
   return `${name} ${band.lowerHz.toFixed(2)}–${band.upperHz.toFixed(2)} Hz · bruto ${formatPeak(band.raw, unit)} · filtrado ${formatPeak(band.filtered, unit)} · diferença ${formatPeak(band.difference, unit)}`;
 }
 
 function setMetricLines(element, lines) {
+  const current = Array.from(element.children, (child) => child.textContent);
+  if (current.length === lines.length && current.every((text, index) => text === lines[index])) return;
   element.replaceChildren(...lines.map((text) => {
     const line = element.ownerDocument.createElement('div');
     line.textContent = text;
@@ -24,18 +27,30 @@ export class SpectrumPlot {
     this.status = status;
     this.metrics = metrics;
     this.context = null;
+    this.lastTimeFrequencyResult = null;
+    this.lastMode = null;
     this._resize();
-    new ResizeObserver(() => this._resize()).observe(canvas.parentElement);
+    new ResizeObserver(() => this._resize()).observe(canvas);
   }
 
   _resize() {
     const dpr = window.devicePixelRatio || 1;
-    const rect = this.canvas.parentElement.getBoundingClientRect();
-    this.canvas.width = Math.floor(rect.width * dpr);
-    this.canvas.height = Math.floor(rect.height * dpr);
+    const rect = this.canvas.getBoundingClientRect();
+    const pixelWidth = Math.floor(rect.width * dpr);
+    const pixelHeight = Math.floor(rect.height * dpr);
+    if (this.canvas.width !== pixelWidth || this.canvas.height !== pixelHeight) {
+      this.canvas.width = pixelWidth;
+      this.canvas.height = pixelHeight;
+      this.lastTimeFrequencyResult = null;
+    }
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     this.width = rect.width;
     this.height = rect.height;
+  }
+
+  _clear() {
+    this.ctx.fillStyle = '#111820';
+    this.ctx.fillRect(0, 0, this.width, this.height);
   }
 
   setContext(context) {
@@ -43,9 +58,6 @@ export class SpectrumPlot {
   }
 
   draw(spectra, timeFrequency, bands, { ready, invalidated, paused, mode }) {
-    const ctx = this.ctx;
-    ctx.fillStyle = '#111820';
-    ctx.fillRect(0, 0, this.width, this.height);
     const state = !ready
       ? `${paused ? 'Pausado · ' : ''}${invalidated ? 'Lacuna/amostra inválida — aguardando 10 s contínuos válidos' : 'Aguardando 10 s contínuos válidos'}`
       : paused ? 'Pausado · janela congelada' : 'Janela completa · frequência nativa';
@@ -62,28 +74,45 @@ export class SpectrumPlot {
       : this.context
         ? ` · ${this.context.source} · ${this.context.lead} · fs ${this.context.fs} Hz · ${this.context.filterDescription}`
         : '';
-    this.status.textContent = `${state}${details}`;
+    const statusText = `${state}${details}`;
+    if (this.status.textContent !== statusText) this.status.textContent = statusText;
     if (!ready || !bands) {
-      this.metrics.textContent = 'Medidas de banda disponíveis após uma janela válida de 10 s.';
-      this.metrics.title = '';
+        const metricsText = 'Medidas de banda disponíveis após uma janela válida de 10 s.';
+        if (this.metrics.textContent !== metricsText) this.metrics.textContent = metricsText;
+        if (this.metrics.title !== '') this.metrics.title = '';
     } else {
-      setMetricLines(this.metrics, [
-        formatBand('Abaixo do passa-alta', bands.low, this.context.unit),
+        setMetricLines(this.metrics, [
+          formatBand('Abaixo do passa-alta', bands.low, this.context.unit),
         formatBand(
           bands.mains.active ? `Notch ${bands.mains.centerHz.toFixed(0)} Hz` : `Faixa nominal ${bands.mains.centerHz.toFixed(0)} Hz (notch inativo)`,
           bands.mains, this.context.unit,
         ),
       ]);
-      this.metrics.title = 'Picos de conteúdo, não classificação de artefato nem interpretação clínica.';
+      const title = 'Picos de conteúdo, não classificação de artefato nem interpretação clínica.';
+      if (this.metrics.title !== title) this.metrics.title = title;
     }
 
-    if (!ready || (!spectra && !timeFrequency)) return;
+    if (!ready || (!spectra && !timeFrequency)) {
+      this._clear();
+      this.lastTimeFrequencyResult = null;
+      this.lastMode = mode;
+      return;
+    }
     if (mode === 'time-frequency') {
       this.canvas.setAttribute('aria-label', 'Espectrogramas STFT alinhados de bruto, filtrado e diferença na mesma janela válida de 10 segundos');
-      if (timeFrequency) this._drawTimeFrequency(timeFrequency);
+      if (timeFrequency && (this.lastTimeFrequencyResult !== timeFrequency || this.lastMode !== mode)) {
+        this._drawTimeFrequency(timeFrequency);
+      } else if (!timeFrequency && this.lastMode !== mode) {
+        this._clear();
+      }
+      this.lastTimeFrequencyResult = timeFrequency;
+      this.lastMode = mode;
       return;
     }
     this.canvas.setAttribute('aria-label', 'Espectros de amplitude unilateral de bruto, filtrado e diferença calculados sobre a mesma janela de 10 segundos');
+    this._clear();
+    this.lastTimeFrequencyResult = null;
+    this.lastMode = mode;
     if (spectra) this._drawFrequency(spectra);
   }
 
@@ -136,6 +165,7 @@ export class SpectrumPlot {
 
   _drawTimeFrequency(result) {
     const ctx = this.ctx;
+    this._clear();
     const left = 42;
     const right = 8;
     const top = 4;

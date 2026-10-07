@@ -32,18 +32,32 @@ function app() {
   class View {
     reset() {}
     setLeads() {}
+    setBottomInset() {}
+    push() {}
+    markRef() {}
+    markQrs() {}
+    draw() {}
+    update() {}
+    onQrs() {}
+    get phaseLabel() { return 'fase'; }
   }
   class SpectrumWindow {
-    reset() {}
-    push() {}
+    reset(fs) { this.fs = fs; this.full = false; this.invalidated = false; this.version = 0; }
+    push() { this.full = true; this.version++; }
+    analyze() {
+      const spectrum = { fs: this.fs, sampleCount: 10, fftSize: 16 };
+      return { raw: spectrum, filtered: spectrum, difference: spectrum };
+    }
+    analyzeTimeFrequency() { return null; }
   }
   class SpectrumPlot extends View {
-    setContext() {}
-    draw() {}
+    setContext(context) { this.context = context; }
+    draw(...args) { this.lastDraw = args; }
   }
   const context = vm.createContext({
     document, Node: class {}, LEAD_NAMES, SyntheticSource, SignalPipeline,
-    SpectrumWindow, EcgPlot: View, SpectrumPlot, Heart3D: View, performance: { now: () => 0 },
+    SpectrumWindow, summarizeFilterBands: () => ({ low: {}, mains: {} }),
+    EcgPlot: View, SpectrumPlot, Heart3D: View, performance: { now: () => 0 },
     requestAnimationFrame() {}, console,
     loadRuntimeAsset: async () => null, isDevHost: () => false,
     ResizeObserver: class { observe() {} },
@@ -91,4 +105,29 @@ test('falha obsoleta não restaura seleção sobre carregamento mais recente', a
   reject(new Error('offline'));
   await loading;
   assert.equal(elements.get('record').value, 'newer');
+});
+
+test('analisa a janela final válida antes de reiniciar um registro curto', () => {
+  const { run } = app();
+  run(`state.mode = 'file';
+    state.paused = false;
+    state.speed = 1;
+  state.detectionLead = 0;
+    state.meta = { id: 'short', record: 'short' };
+    state.source = {
+      fs: 20, nSamples: 1, index: 0, beats: [], aliases: {}, mapping: new Int32Array([0]),
+      record: { units: [{ known: false, declared: 'adu' }] }, get done() { return this.index >= this.nSamples; },
+      get position() { return this.index / this.fs; }, get duration() { return this.nSamples / this.fs; },
+      next() { this.index++; return { t: 0, index: 0, leads: new Float32Array(12) }; },
+      reset() { this.index = 0; },
+    };
+    state.pipeline = {
+      step: () => ({ filtered: new Float32Array(12), mask: null, event: null }),
+      filters: { description: 'teste', notchActive: true },
+      detector: { heartRate: null, rrMean: null },
+    };`);
+  run('frame(300)');
+  assert.equal(run('spectrumPlot.lastDraw[3].ready'), true);
+  assert.equal(run('spectrumPlot.context.unit'), 'adu');
+  assert.equal(run('state.source.index'), 0);
 });

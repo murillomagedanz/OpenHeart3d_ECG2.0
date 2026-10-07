@@ -48,6 +48,8 @@ test('amplitudeSpectrum localiza tom conhecido e conserva escala de amplitude', 
   assert.equal(spectrum.fftSize, 1024);
   assert.equal(spectrum.sampleCount, samples.length);
   assert.throws(() => amplitudeSpectrum([0, 1, Number.NaN], 100), /Amostra inválida/);
+  assert.throws(() => amplitudeSpectrum([0, 1], 100), /três amostras/);
+  assert.throws(() => new SpectrumWindow(1, 2), /três amostras/);
 });
 
 test('SpectrumWindow produz três sinais alinhados e descarta a janela ao encontrar lacuna', () => {
@@ -98,6 +100,21 @@ test('janela de 10 s nativa mostra atenuação coerente com o passa-alta e notch
   assert.ok(Math.abs(bands.mains.centerHz - 60) < 1e-9);
 });
 
+test('faixa de notch acima de Nyquist é indicada como indisponível sem intervalo invertido', () => {
+  const spectrum = amplitudeSpectrum(new Float32Array(1000), 100);
+  const bands = summarizeFilterBands({
+    raw: spectrum,
+    filtered: spectrum,
+    difference: spectrum,
+  }, { notchHz: 60, notchQ: 30, notchActive: false });
+  assert.equal(bands.mains.available, false);
+  assert.equal(bands.mains.lowerHz, null);
+  assert.equal(bands.mains.upperHz, null);
+  assert.equal(bands.mains.active, false);
+  assert.equal(bands.mains.raw.frequency, null);
+  assert.ok(Number.isFinite(bands.low.upperHz));
+});
+
 test('timeFrequencyAnalysis localiza tons diferentes em partes distintas do mesmo intervalo', () => {
   const raw = Float32Array.from({ length: 1000 }, (_, i) => {
     const t = i / 100;
@@ -114,6 +131,7 @@ test('timeFrequencyAnalysis localiza tons diferentes em partes distintas do mesm
   assert.deepEqual(Array.from(result.raw.frequency), Array.from(result.filtered.frequency));
   assert.deepEqual(Array.from(result.raw.frequency), Array.from(result.difference.frequency));
   assert.throws(() => timeFrequencyAnalysis(raw.subarray(0, 100), filtered.subarray(0, 100), 100), /curta/);
+  assert.throws(() => timeFrequencyAnalysis([1, 2], [1, 2], 1, { frameSeconds: 2 }), /inválidos/);
 });
 
 test('registros reais bundled preservam fs nativa e alinhamento em espectro, STFT e medidas de banda', async (t) => {
