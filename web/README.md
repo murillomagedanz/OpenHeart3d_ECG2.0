@@ -11,7 +11,31 @@ cd web
 npm start            # python -m http.server 8000
 ```
 
-Abra `http://localhost:8000` (se a porta 8000 estiver ocupada: `python -m http.server 8765` e `http://127.0.0.1:8765`).
+Abra `http://localhost:8000` (se a porta 8000 estiver ocupada: `python -m http.server 8765 --bind 127.0.0.1` e `http://127.0.0.1:8765`).
+
+## Coração 3D
+
+O painel da direita mostra um coração 3D comandado pelos eventos detectados: a sístole ventricular começa no R detectado e a contração atrial é **estimada pelo RR** (e assim rotulada). Em qualquer modelo, a animação indica **sincronização temporal**, não anatomia, contratilidade ou força reais.
+
+- **Vistas** (botões no topo do painel): anterior, posterior, lateral esquerda, lateral direita, superior (base) e inferior (ápice), com transição suave; "giro" liga a rotação automática em torno do eixo central. A câmera orbita um alvo fixo no centro do coração (sem pan) e o zoom é limitado.
+- **Camadas e corte** (painel recolhível): visibilidade e opacidade por parte — ventrículos, átrios/topo, aorta e grandes vasos —, modo **raio-X** (transparente + malha) e **plano de corte** em um eixo (≈ sagital, transversal ou coronal) com posição ajustável. São filtros de exibição, não medidas (D11).
+- **Modelo padrão: procedural didático** (esferas e tubos). É o que qualquer pessoa vê ao clonar o repositório.
+- **Modelo anatômico ilustrativo (opcional, asset licenciado)**: um modelo de terceiros, com licença que não permite redistribuição, está no repositório **apenas cifrado** (`assets/calib/`, ver [`assets/calib/LEIA-ME.md`](assets/calib/LEIA-ME.md) e D10). Com a chave, o aplicativo decifra o derivado em memória (WebCrypto, AES-256-GCM, hash conferido) e troca o modelo; seus dois clipes de animação (ventrículos e topo) têm o tempo **posicionado pelos envelopes do ECG** — nunca tocam sozinhos. Sem chave, nada muda e nada aparece no console. Como fornecer a chave:
+  - em host local (`localhost` / `127.0.0.1`): arquivo `assets/calib/local.key` (ignorado pelo git; `npm run build-rt` o grava), descoberto pela listagem de diretório do servidor estático — sem requisição 404 quando ele não existe;
+  - em qualquer host: abrir a página com `#k=<chave em base64url>` uma vez (o fragmento é removido da barra; em host local a chave fica no `localStorage` do navegador).
+
+  A proteção é a que a licença pede ("comercialmente razoável"), não inviolável: num site estático a chave viaja ao navegador quando é fornecida. Nenhum nome de produto, autor ou loja aparece em claro no repositório; a proveniência completa está no manifesto dentro do cofre.
+
+### Cofre de assets (uso do autor do projeto)
+
+```powershell
+cd web
+npm run pack-vault        # zip original → extração temporária → manifesto → fatias cifradas em assets/calib/
+npm run unpack-vault      # verifica e decifra para ../.local/calib/ (ignorado pelo git); --list só mostra o índice
+npm run build-rt          # originais → glTF (texturas WebP 2048², clipes por armadura) → GLB cifrado em assets/calib/
+```
+
+A chave (32 bytes) é criada na primeira execução de `pack-vault`, gravada em `~/.openheart3d/vault.key` (fora de qualquer worktree) e impressa uma única vez; também é aceita pela variável `OH3D_VAULT_KEY`. A proveniência é lida de `~/.openheart3d/provenance.json` e vai para o manifesto cifrado. Formato: bloco = IV(12) ‖ cifrado ‖ TAG(16), AAD amarrando conjunto e posição; índice cifrado com SHA-256 das fatias e do todo; fatias ≤ 95 MB (limite do GitHub). O código das ferramentas está em `tools/vault/`.
 
 ## Fontes de dados
 
@@ -32,12 +56,14 @@ npm run bench        # só o sintético
 npm run bench:real   # só os registros reais anotados presentes em data/records/
 ```
 
-### Testes unitários (`tests/*.test.mjs`, 40 testes)
+### Testes unitários (`tests/*.test.mjs`, 49 testes)
 
 - `wfdb.test.mjs` — cada cabeçalho WFDB traz um checksum de 16 bits por sinal e o valor da primeira amostra; os testes decodificam os registros reais e exigem que ambos batam (formatos 16 e 212), conferem os 2273 batimentos conhecidos do MIT-BIH 100, a decodificação de anotações com SKIP (ordem de palavras PDP-11 da biblioteca WFDB)/AUX/NUM/CHN, skew, sentinelas de amostra inválida, conversão de unidades (µV/mV/V → mV) e o mapeamento de derivações (MLII, C1–C6, registros genéricos).
 - `scoring.test.mjs` — escore ao vivo vs. offline, inclusive com detecção atrasada por search-back e fechamento no fim do registro.
 - `filters.test.mjs` — notch atenua a rede e preserva o ECG; é desativado (e a descrição avisa) quando fs ≤ 2 × f0, em vez de divergir.
 - `gaps.test.mjs` — lacunas de amostras inválidas: filtros e detector não avançam, são re-armados na retomada sem transiente, o RR através da lacuna não entra na média; inclui a comparação com o comportamento antigo (sample-and-hold), que gerava falso positivo na retomada.
+- `envelopes.test.mjs` — envelopes de contração e a tradução envelope → tempo de clipe (`clipTime`): pose relaxada fora da janela, contraído em `peak` na sustentação, descida pela trajetória do autor até `duration`.
+- `vault.test.mjs` — cofre: ida e volta em dados sintéticos com fatias pequenas forçadas, chave errada recusada, fatia corrompida/truncada apontada pelo nome, decodificador do navegador (WebCrypto) abrindo o conjunto gerado pelo Node, leitor zip mínimo com zip aninhado; e a **guarda contra vazamento**, que percorre todos os arquivos rastreados pelo git e falha se algum começar com assinatura de cena binária/arquivo de modelagem/TIFF/EXR/glTF, tiver extensão de modelo 3D, for uma chave, estiver em `assets/calib/` sem ser bloco cifrado de alta entropia, for imagem fora de `docs/`/`web/vendor/` ou citar um termo de proveniência (comparado por hash).
 
 ### Detector em sinal sintético (`tests/detector-bench.mjs`)
 
@@ -91,13 +117,18 @@ FileSource ──────┘    (PA 0,5 Hz +        (Pan–Tompkins       (s
 - `src/io/wfdb.js` — leitor WFDB: cabeçalho, sinais (formatos 16, 24, 32, 61, 80, 160, 212), anotações MIT, checksum. Aplica o skew por sinal do cabeçalho (o checksum é conferido sobre as amostras como armazenadas, antes do skew, como faz a biblioteca WFDB), converte as unidades declaradas (µV, mV, V) para mV — unidades desconhecidas ficam sem conversão e são sinalizadas no painel — e transforma as sentinelas WFDB de amostra inválida em NaN; na reprodução elas são contadas e sinalizadas por uma máscara por derivação: filtros e detector não avançam nessas amostras (nada é inventado), são re-armados na primeira amostra válida seguinte e o traçado mostra um vão. Sem DOM: o mesmo código roda no navegador e nos testes.
 - `src/io/fileSource.js` — reprodução do registro na frequência nativa; mapeia MLII → II, C1–C6 → V1–V6, nomes em minúsculas e registros genéricos de 1–2 canais; escolhe a derivação de detecção (II, senão a primeira disponível); entrega a máscara de amostras inválidas por derivação.
 - `src/view/ecgPlot.js` — papel 25 mm/s · 10 mm/mV, varredura, células "sem sinal" para derivações ausentes, tira de ritmo com marcas de QRS detectado e de referência. Guarda bruto e filtrado de cada amostra e escolhe o modo (bruto | filtrado | diferença) na hora de desenhar, então trocar de modo redesenha o histórico inteiro de imediato, mesmo em pausa.
-- `src/view/heart3d.js` — coração procedural (Three.js); envelopes de contração acionados pelos eventos detectados.
-- `src/main.js` — liga tudo; reconstrói o `SignalPipeline` e o traçado na frequência da fonte a cada troca (nada é reamostrado); ao fim de um registro, fecha o escore e recomeça do zero.
+- `src/view/envelopes.js` — envelopes de contração (ventricular no R detectado; atrial estimada pelo RR) e `clipTime()`, que traduz o envelope em instante de um clipe de animação. Sem DOM: testado no Node.
+- `src/view/heart3d.js` — coração 3D (Three.js): modelo procedural padrão e, opcionalmente, modelo anatômico carregado por `setModel(gltf)` (nós mapeados em camadas; clipes com tempo posicionado pelo ECG via `AnimationMixer`, nunca autoplay; centralização, alinhamento do eixo longo e normalização de tamanho). Câmera com alvo fixo, vistas predefinidas, giro automático, camadas/opacidade, raio-X e plano de corte.
+- `src/view/assetVault.js` — acesso ao asset cifrado: descobre a chave (`#k=`, `localStorage`, `local.key` em host local), decifra índice e fatias com WebCrypto (AES-256-GCM), confere SHA-256 e devolve o GLB só em memória; sem chave ou com falha, devolve `null` em silêncio (aviso discreto no console apenas em host local).
+- `src/main.js` — liga tudo; reconstrói o `SignalPipeline` e o traçado na frequência da fonte a cada troca (nada é reamostrado); ao fim de um registro, fecha o escore e recomeça do zero; liga os controles de vistas/camadas/corte e carrega o modelo anatômico opcional (importando o `GLTFLoader` só quando há chave).
 - `scripts/fetch-records.mjs` — baixa registros do PhysioNet listados em `data/manifest.json` (ou adiciona novos pela linha de comando).
+- `tools/vault/` — `lib.mjs` (formato do cofre: chave, AES-GCM, fatias, índice, contêiner próprio + gzip, leitor zip mínimo), `pack.mjs`, `unpack.mjs` e `build-rt.mjs` (conversão da cena de origem com `fbx2gltf`, texturas → WebP com `sharp`, um clipe por armadura recortado a um ciclo, dicas de camadas/clipes nos `extras` da cena, otimização com `@gltf-transform`, cifra do GLB; fallback OBJ + MTL estático). Dependências só de desenvolvimento (`npm install`).
+- `vendor/three/` — Three.js r160 (`three.module.js`, `OrbitControls`, `GLTFLoader` + `BufferGeometryUtils`).
 
 ## Limites deste protótipo
 
-- O coração 3D é uma ilustração geométrica; a animação indica **sincronização temporal**, não anatomia, contratilidade ou força.
+- O coração 3D é uma ilustração; a animação indica **sincronização temporal**, não anatomia, contratilidade ou força. Isso vale também para o modelo anatômico opcional: ele é "ilustrativo", seus clipes só têm o tempo posicionado pelo ECG, e vistas, camadas, raio-X e corte são filtros de exibição, não medidas.
+- O modelo anatômico é um asset licenciado distribuído cifrado: sem a chave, só o procedural existe; com a chave num site estático, o conteúdo decifrado fica na memória do navegador de quem a recebeu (proteção "comercialmente razoável", não inviolável). O cofre adiciona ~170 MB ao clone.
 - A contração atrial é prevista pelo RR médio (não há detecção de onda P ainda) e é rotulada como "estimada". Em fibrilação atrial (PTB-XL 08215, LUDB 8) essa estimativa não tem sentido fisiológico — o registro está incluído justamente para expor esse limite.
 - Registros de 2 derivações (MIT-BIH) mostram só as derivações existentes; nada é inventado para as outras células.
 - O detector marca a deflexão dominante do QRS, não necessariamente o pico R (erro sistemático de ~25 ms em QRS predominantemente negativos).
