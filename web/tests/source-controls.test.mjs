@@ -33,9 +33,17 @@ function app() {
     reset() {}
     setLeads() {}
   }
+  class SpectrumWindow {
+    reset() {}
+    push() {}
+  }
+  class SpectrumPlot extends View {
+    setContext() {}
+    draw() {}
+  }
   const context = vm.createContext({
     document, Node: class {}, LEAD_NAMES, SyntheticSource, SignalPipeline,
-    EcgPlot: View, Heart3D: View, performance: { now: () => 0 },
+    SpectrumWindow, EcgPlot: View, SpectrumPlot, Heart3D: View, performance: { now: () => 0 },
     requestAnimationFrame() {}, console,
     loadRuntimeAsset: async () => null, isDevHost: () => false,
     ResizeObserver: class { observe() {} },

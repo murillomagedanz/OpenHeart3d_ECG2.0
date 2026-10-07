@@ -1,10 +1,12 @@
 import { LEAD_NAMES } from './ecg/leads.js';
 import { SyntheticSource } from './ecg/synth.js';
 import { SignalPipeline } from './ecg/pipeline.js';
+import { SpectrumWindow } from './ecg/spectrum.js';
 import { OnlineScorer, DEFAULT_TOLERANCE_S } from './ecg/scoring.js';
 import { loadRecord } from './io/wfdb.js';
 import { FileSource } from './io/fileSource.js';
 import { EcgPlot } from './view/ecgPlot.js';
+import { SpectrumPlot } from './view/spectrumPlot.js';
 import { Heart3D } from './view/heart3d.js';
 import { loadRuntimeAsset, isDevHost } from './view/assetVault.js';
 
@@ -22,12 +24,15 @@ const ui = {
   recordInfo: $('record-info'), recordInfoBody: $('record-info-body'),
   modelLabel: $('model-label'), autoRotate: $('auto-rotate'), xray: $('xray'),
   clipOn: $('clip-on'), clipAxis: $('clip-axis'), clipPos: $('clip-pos'),
+  spectrumCanvas: $('spectrum-canvas'), spectrumStatus: $('spectrum-status'),
 };
 
 const SYNTH_BANNER = 'DADOS SINTÉTICOS — simulação didática. Não é dispositivo médico, não realiza diagnóstico. '
   + 'A animação indica sincronização temporal com eventos elétricos detectados; não representa anatomia ou força reais.';
 
 const plot = new EcgPlot($('ecg-canvas'), SYNTH_FS);
+const spectrumWindow = new SpectrumWindow(SYNTH_FS);
+const spectrumPlot = new SpectrumPlot(ui.spectrumCanvas, ui.spectrumStatus);
 const heart = new Heart3D($('heart-canvas'));
 
 const state = {
@@ -38,6 +43,9 @@ const state = {
   lastPass: null, // escore fechado da última reprodução completa do registro
 };
 let manifest = null;
+let latestSpectrum = null;
+let lastSpectrumVersion = -1;
+let lastSpectrumAt = 0;
 
 // --- Pipeline -----------------------------------------------------------------
 
@@ -46,6 +54,10 @@ let manifest = null;
 function buildPipeline(fs) {
   state.pipeline = new SignalPipeline(fs, LEAD_NAMES.length, { notchHz: state.mainsHz, detectionLead: state.detectionLead });
   plot.reset(fs);
+  spectrumWindow.reset(fs);
+  latestSpectrum = null;
+  lastSpectrumVersion = -1;
+  lastSpectrumAt = 0;
   heart.reset();
   state.lastQrsT = null;
   state.nextBeat = 0;
@@ -366,6 +378,11 @@ function step() {
   state.signalTime = s.t;
 
   plot.push(s.leads, filtered, mask);
+  spectrumWindow.push(
+    s.leads[state.detectionLead],
+    filtered[state.detectionLead],
+    Boolean(mask && mask[state.detectionLead]),
+  );
 
   if (state.mode === 'file') {
     while (state.nextBeat < src.beats.length && src.beats[state.nextBeat] <= s.index) {
@@ -407,6 +424,25 @@ function frame(now) {
 
   plot.label = viewLabels()[state.viewMode];
   plot.draw();
+  if (spectrumWindow.full && spectrumWindow.version !== lastSpectrumVersion && now - lastSpectrumAt >= 250) {
+    latestSpectrum = spectrumWindow.analyze();
+    lastSpectrumVersion = spectrumWindow.version;
+    lastSpectrumAt = now;
+  }
+  if (!spectrumWindow.full) latestSpectrum = null;
+  const leadName = LEAD_NAMES[state.detectionLead];
+  const alias = state.source.aliases?.[leadName];
+  spectrumPlot.setContext({
+    source: state.mode === 'synthetic' ? 'Sintética' : `Real · ${state.meta?.record ?? 'registro'}`,
+    lead: alias ? `${leadName} (${alias})` : leadName,
+    fs: state.source.fs,
+    filterDescription: state.pipeline.filters.description,
+  });
+  spectrumPlot.draw(latestSpectrum, {
+    ready: spectrumWindow.full,
+    invalidated: spectrumWindow.invalidated,
+    paused: state.paused,
+  });
   heart.update(state.signalTime);
 
   const det = state.pipeline.detector;

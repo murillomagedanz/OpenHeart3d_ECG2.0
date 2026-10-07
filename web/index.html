@@ -26,9 +26,20 @@
 
   <main>
     <section id="ecg-panel">
-      <canvas id="ecg-canvas" role="img" aria-label="Traçado de ECG de 12 derivações com tira de ritmo; os valores numéricos (FC, RR, último QRS) aparecem no painel ao lado">
-        Traçado de ECG (12 derivações e tira de ritmo). Seu navegador não suporta canvas; os valores detectados aparecem no painel de estado.
-      </canvas>
+      <div id="ecg-plot">
+        <canvas id="ecg-canvas" role="img" aria-label="Traçado de ECG de 12 derivações com tira de ritmo; os valores numéricos (FC, RR, último QRS) aparecem no painel ao lado">
+          Traçado de ECG (12 derivações e tira de ritmo). Seu navegador não suporta canvas; os valores detectados aparecem no painel de estado.
+        </canvas>
+      </div>
+      <section id="spectrum-panel" aria-label="Análise espectral da derivação de ritmo">
+        <div class="spectrum-heading">
+          <strong>Espectro — bruto, filtrado e diferença</strong>
+          <span id="spectrum-status" aria-live="polite">Aguardando 10 s contínuos válidos</span>
+        </div>
+        <canvas id="spectrum-canvas" role="img" aria-label="Espectros de amplitude unilateral de bruto, filtrado e diferença calculados sobre a mesma janela de 10 segundos">
+          Análise espectral indisponível: este navegador não suporta canvas.
+        </canvas>
+      </section>
     </section>
 
     <section id="heart-panel">

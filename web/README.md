@@ -1,6 +1,6 @@
 # Protótipo web — ECG 12 derivações + coração 3D sincronizado
 
-Protótipo estático (HTML + ES modules, sem build) da etapa 2 do roteiro. Reproduz ECG **sintético** ou **registros reais de bancos públicos (PhysioNet, formato WFDB)**; em ambos os casos é o sinal que comanda a animação do coração. Não é dispositivo médico e não realiza diagnóstico.
+Protótipo estático (HTML + ES modules, sem build) das etapas 2 e 3. Reproduz ECG **sintético** ou **registros reais de bancos públicos (PhysioNet, formato WFDB)**; em ambos os casos é o sinal que comanda a animação do coração. Não é dispositivo médico e não realiza diagnóstico.
 
 ## Executar
 
@@ -49,6 +49,14 @@ Seis registros vêm no repositório (PTB-XL normal / fibrilação atrial / bloqu
 
 Quando o registro tem anotações de batimento, a tira de ritmo mostra as marcas **amarelas (QRS detectado)** acima e as **azuis (referência anotada)** abaixo, e o painel conta TP / FP / FN ao vivo (janela ±150 ms, ANSI/AAMI EC57). Uma referência só vira FN depois do pior atraso possível do detector (no search-back, 1,66 × RR), para que o escore ao vivo concorde com o offline. Ao chegar ao fim do registro a contagem é fechada (pendências viram FN/FP), o resultado da passagem completa fica exibido e a reprodução recomeça do zero. O detector nunca vê as anotações; elas servem só para pontuá-lo.
 
+## Análise espectral (primeira entrega da etapa 3)
+
+O painel sob o traçado mostra simultaneamente os espectros de **bruto**, **filtrado** e **diferença (bruto − filtrado)** para a derivação da tira de ritmo/detecção: II quando disponível, senão a primeira derivação disponível. A janela é móvel, tem 10 s completos e consecutivos; os três sinais usam exatamente os mesmos índices e `fs` nativa da fonte. O processamento existente e o seletor bruto/filtrado/diferença do traçado não são alterados.
+
+Parâmetros apresentados no painel: derivação/alias, fonte/registro, frequência de amostragem, configuração dos filtros, janela Hann, ausência de remoção de DC, número de amostras, tamanho da FFT e resolução em Hz. A FFT radix-2 é preenchida com zeros até a próxima potência de dois; a escala de amplitude unilateral é expressa em mV. Cada faixa do gráfico usa escala vertical própria e o maior valor da faixa aparece como referência. A transformada é atualizada durante a reprodução e fica congelada em pausa.
+
+Ao iniciar ou trocar/reiniciar uma fonte (inclusive após o fim de um arquivo), a janela anterior é descartada e o painel aguarda 10 s novos. Uma lacuna ou valor inválido limpa a janela inteira: não há interpolação nem espectro até haver 10 s consecutivos válidos. Sinais de menos de 10 s permanecem sem espectro. É uma descrição matemática do sinal, não separa automaticamente fisiologia de ruído e não sustenta inferência clínica; esta entrega não inclui análise tempo-frequência nem avaliação ampla de artefatos.
+
 ## Testar
 
 ```powershell
@@ -68,6 +76,7 @@ npm run bench:real   # só os registros reais anotados presentes em data/records
 - `scoring.test.mjs` — escore ao vivo vs. offline, inclusive com detecção atrasada por search-back e fechamento no fim do registro.
 - `filters.test.mjs` — notch atenua a rede e preserva o ECG; é desativado (e a descrição avisa) quando fs ≤ 2 × f0, em vez de divergir.
 - `gaps.test.mjs` — lacunas de amostras inválidas: filtros e detector não avançam, são re-armados na retomada sem transiente, o RR através da lacuna não entra na média; inclui a comparação com o comportamento antigo (sample-and-hold), que gerava falso positivo na retomada.
+- `spectrum.test.mjs` — escala unilateral com tom de frequência conhecida, janela comum de 10 s, descarte após lacuna, atenuação/preservação esperada com filtros em sinais sintéticos e espectro finito de um trecho real na frequência nativa.
 - `envelopes.test.mjs` — envelopes de contração e a tradução envelope → tempo de clipe (`clipTime`): pose relaxada fora da janela, contraído em `peak` na sustentação, descida pela trajetória do autor até `duration`.
 - `vault.test.mjs` — cofre: ida e volta em dados sintéticos com fatias pequenas forçadas, chave errada recusada, fatia corrompida/truncada apontada pelo nome, decodificador do navegador (WebCrypto) abrindo o conjunto gerado pelo Node, leitor zip mínimo com zip aninhado; e a **guarda contra vazamento**, que percorre todos os arquivos rastreados pelo git e falha se algum começar com assinatura de cena binária/arquivo de modelagem/TIFF/EXR/glTF, tiver extensão de modelo 3D, for uma chave, estiver em `assets/calib/` sem ser bloco cifrado de alta entropia, for imagem fora de `docs/`/`web/vendor/` ou citar um termo de proveniência (comparado por hash).
 
@@ -110,7 +119,9 @@ FileSource ──────┘    (PA 0,5 Hz +        (Pan–Tompkins       (s
  (WFDB: .hea/.dat,     notch 50|60 Hz)     simplificado +      contração atrial ESTIMADA
   fs nativa, 12 ou                         search-back,        a partir do RR médio)
   menos derivações)                        derivação II)
-        │                    └──────────────► EcgPlot (bruto | filtrado | diferença)
+        │                    ├──────────────► EcgPlot (bruto | filtrado | diferença)
+        └─ bruto + filtrado ──► SpectrumWindow (10 s, mesma fs e derivação)
+                                  └──────────► espectros: bruto | filtrado | diferença
         └── anotações (.atr / .ii) ──► OnlineScorer ──► TP / FP / FN ao vivo
 ```
 
@@ -118,11 +129,13 @@ FileSource ──────┘    (PA 0,5 Hz +        (Pan–Tompkins       (s
 - `src/ecg/synth.js` — vetor cardíaco como soma de gaussianas (P, Q, R, S, T) posicionadas no tempo em relação ao R: QRS de duração fixa, QT por Bazett, PR quase constante; variabilidade RR, linha de base respiratória, ruído e rede; semente opcional para reprodutibilidade.
 - `src/ecg/filters.js` — passa-alta 1ª ordem e notch biquad (50 ou 60 Hz), por derivação, com descrição textual exibida na tela; o notch é desativado automaticamente (e a descrição diz isso) quando a frequência de amostragem do registro é ≤ 2 × f0.
 - `src/ecg/pipeline.js` — `SignalPipeline`: um passo de processamento (banco de filtros + detector + tratamento de lacunas), compartilhado pela interface, pelo benchmark em dados reais e pelos testes, para que o que é medido seja exatamente o que é exibido.
+- `src/ecg/spectrum.js` — janela móvel comum de 10 s válidos e FFT radix-2 sem dependências; Hann, zero-padding, espectro unilateral de amplitude e diferença calculada a partir do mesmo par bruto/filtrado.
 - `src/ecg/detector.js` — detector de QRS em tempo real: passa-banda por médias móveis → derivada de 10 ms → quadrado → integração 100 ms → limiar adaptativo com janela candidata; search-back após 1,66 × RR; instante do R no máximo em módulo do passa-banda. Expõe RR médio, FC e a latência máxima de emissão.
 - `src/ecg/scoring.js` — pareamento batimento a batimento (offline e incremental), janela ±150 ms, sempre cronológico (pendência mais antiga compatível); ao vivo, a espera por uma detecção segue a latência máxima do detector e `flush(Infinity)` fecha a contagem no fim do registro.
 - `src/io/wfdb.js` — leitor WFDB: cabeçalho, sinais (formatos 16, 24, 32, 61, 80, 160, 212), anotações MIT, checksum. Aplica o skew por sinal do cabeçalho (o checksum é conferido sobre as amostras como armazenadas, antes do skew, como faz a biblioteca WFDB), converte as unidades declaradas (µV, mV, V) para mV — unidades desconhecidas ficam sem conversão e são sinalizadas no painel — e transforma as sentinelas WFDB de amostra inválida em NaN; na reprodução elas são contadas e sinalizadas por uma máscara por derivação: filtros e detector não avançam nessas amostras (nada é inventado), são re-armados na primeira amostra válida seguinte e o traçado mostra um vão. Sem DOM: o mesmo código roda no navegador e nos testes.
 - `src/io/fileSource.js` — reprodução do registro na frequência nativa; mapeia MLII → II, C1–C6 → V1–V6, nomes em minúsculas e registros genéricos de 1–2 canais; escolhe a derivação de detecção (II, senão a primeira disponível); entrega a máscara de amostras inválidas por derivação.
 - `src/view/ecgPlot.js` — papel 25 mm/s · 10 mm/mV, varredura, células "sem sinal" para derivações ausentes, tira de ritmo com marcas de QRS detectado e de referência. Guarda bruto e filtrado de cada amostra e escolhe o modo (bruto | filtrado | diferença) na hora de desenhar, então trocar de modo redesenha o histórico inteiro de imediato, mesmo em pausa.
+- `src/view/spectrumPlot.js` — desenha os três espectros e explicita fonte, derivação, `fs`, filtros, janela e resolução; deixa o painel sem curva durante janela insuficiente ou após lacuna.
 - `src/view/envelopes.js` — envelopes de contração (ventricular no R detectado; atrial estimada pelo RR) e `clipTime()`, que traduz o envelope em instante de um clipe de animação. Sem DOM: testado no Node.
 - `src/view/heart3d.js` — coração 3D (Three.js): modelo procedural padrão e, opcionalmente, modelo anatômico carregado por `setModel(gltf)` (nós mapeados em camadas; clipes com tempo posicionado pelo ECG via `AnimationMixer`, nunca autoplay; centralização, alinhamento do eixo longo e normalização de tamanho). Câmera com alvo fixo, vistas predefinidas, giro automático, camadas/opacidade, raio-X e plano de corte.
 - `src/view/assetVault.js` — acesso ao asset cifrado: descobre a chave (`#k=`, `localStorage`, `local.key` em host local), decifra índice e fatias com WebCrypto (AES-256-GCM), confere SHA-256 e devolve o GLB só em memória; sem chave ou com falha, devolve `null` em silêncio (aviso discreto no console apenas em host local).
@@ -144,6 +157,6 @@ FileSource ──────┘    (PA 0,5 Hz +        (Pan–Tompkins       (s
 ## Próximos passos sugeridos
 
 1. Detecção de ondas P e T (o LUDB fornece a referência anotada) para substituir a estimativa atrial pelo RR.
-2. Painel de espectro/tempo-frequência para o modo "diferença" — o que a filtragem remove.
+2. Avaliar separadamente qualquer extensão do painel espectral; tempo-frequência e análise ampla de artefatos não fazem parte desta entrega.
 3. Rodar o benchmark nos 48 registros do MIT-BIH (`npm run fetch-data -- mitdb/<n>`) e publicar a tabela completa.
 4. Leitores EDF e CSV para dispositivos próprios.
