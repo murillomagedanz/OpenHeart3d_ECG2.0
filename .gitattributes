@@ -4,3 +4,4 @@ web/data/records/** -text
 web/vendor/** -text
 # Cofre cifrado: binarios intactos
 web/assets/calib/** -text
+web/assets/calib/LEIA-ME.md text
