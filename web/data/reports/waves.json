@@ -29,299 +29,299 @@
       "split": "tuning",
       "mode": "detected",
       "scope": "derivação II",
-      "records": 23,
+      "records": 47,
       "p": {
-        "tp": 121,
-        "fp": 46,
-        "fn": 5,
-        "sensitivity": 0.9603,
-        "ppv": 0.7246,
+        "tp": 276,
+        "fp": 48,
+        "fn": 20,
+        "sensitivity": 0.9324,
+        "ppv": 0.8519,
         "onMs": {
-          "mean": -4.1,
-          "sd": 28.6,
-          "n": 121
+          "mean": 1.8,
+          "sd": 33.9,
+          "n": 276
         },
         "peakMs": {
-          "mean": 3.8,
-          "sd": 15.6,
-          "n": 121
-        },
-        "offMs": {
-          "mean": -3.2,
-          "sd": 19.1,
-          "n": 121
-        }
-      },
-      "t": {
-        "tp": 193,
-        "fp": 5,
-        "fn": 11,
-        "sensitivity": 0.9461,
-        "ppv": 0.9747,
-        "onMs": {
-          "mean": 12.5,
-          "sd": 50.4,
-          "n": 193
-        },
-        "peakMs": {
-          "mean": 7.1,
-          "sd": 32.4,
-          "n": 193
-        },
-        "offMs": {
-          "mean": -2.7,
-          "sd": 44,
-          "n": 193
-        }
-      }
-    },
-    {
-      "split": "tuning",
-      "mode": "detected",
-      "scope": "12 derivações",
-      "records": 23,
-      "p": {
-        "tp": 1236,
-        "fp": 336,
-        "fn": 278,
-        "sensitivity": 0.8164,
-        "ppv": 0.7863,
-        "onMs": {
-          "mean": 2.8,
-          "sd": 34,
-          "n": 1236
-        },
-        "peakMs": {
-          "mean": 6.3,
-          "sd": 22.4,
-          "n": 1236
-        },
-        "offMs": {
-          "mean": 1.5,
-          "sd": 24.7,
-          "n": 1236
-        }
-      },
-      "t": {
-        "tp": 2214,
-        "fp": 79,
-        "fn": 196,
-        "sensitivity": 0.9187,
-        "ppv": 0.9655,
-        "onMs": {
-          "mean": 12.5,
-          "sd": 47.4,
-          "n": 2214
-        },
-        "peakMs": {
-          "mean": 3.3,
-          "sd": 29.2,
-          "n": 2214
-        },
-        "offMs": {
-          "mean": -11.9,
-          "sd": 47.3,
-          "n": 2214
-        }
-      }
-    },
-    {
-      "split": "tuning",
-      "mode": "reference",
-      "scope": "derivação II",
-      "records": 23,
-      "p": {
-        "tp": 122,
-        "fp": 46,
-        "fn": 4,
-        "sensitivity": 0.9683,
-        "ppv": 0.7262,
-        "onMs": {
-          "mean": -3.8,
-          "sd": 27.8,
-          "n": 122
-        },
-        "peakMs": {
-          "mean": 3.8,
-          "sd": 15.5,
-          "n": 122
-        },
-        "offMs": {
-          "mean": -3.3,
-          "sd": 19,
-          "n": 122
-        }
-      },
-      "t": {
-        "tp": 195,
-        "fp": 5,
-        "fn": 9,
-        "sensitivity": 0.9559,
-        "ppv": 0.975,
-        "onMs": {
-          "mean": 13,
-          "sd": 50.2,
-          "n": 195
-        },
-        "peakMs": {
-          "mean": 7,
-          "sd": 32.3,
-          "n": 195
-        },
-        "offMs": {
-          "mean": -2.7,
-          "sd": 43.8,
-          "n": 195
-        }
-      }
-    },
-    {
-      "split": "tuning",
-      "mode": "reference",
-      "scope": "12 derivações",
-      "records": 23,
-      "p": {
-        "tp": 1244,
-        "fp": 334,
-        "fn": 270,
-        "sensitivity": 0.8217,
-        "ppv": 0.7883,
-        "onMs": {
-          "mean": 2.9,
-          "sd": 33.8,
-          "n": 1244
-        },
-        "peakMs": {
-          "mean": 6.3,
-          "sd": 22.3,
-          "n": 1244
-        },
-        "offMs": {
-          "mean": 1.6,
-          "sd": 24.7,
-          "n": 1244
-        }
-      },
-      "t": {
-        "tp": 2236,
-        "fp": 79,
-        "fn": 174,
-        "sensitivity": 0.9278,
-        "ppv": 0.9659,
-        "onMs": {
-          "mean": 12.2,
-          "sd": 47,
-          "n": 2236
-        },
-        "peakMs": {
-          "mean": 2.9,
-          "sd": 28.9,
-          "n": 2236
-        },
-        "offMs": {
-          "mean": -12.2,
-          "sd": 47.1,
-          "n": 2236
-        }
-      }
-    },
-    {
-      "split": "held-out",
-      "mode": "detected",
-      "scope": "derivação II",
-      "records": 16,
-      "p": {
-        "tp": 80,
-        "fp": 26,
-        "fn": 0,
-        "sensitivity": 1,
-        "ppv": 0.7547,
-        "onMs": {
-          "mean": -8.6,
-          "sd": 25.1,
-          "n": 80
-        },
-        "peakMs": {
-          "mean": 0.3,
-          "sd": 5.6,
-          "n": 80
-        },
-        "offMs": {
-          "mean": -5.1,
-          "sd": 14.8,
-          "n": 80
-        }
-      },
-      "t": {
-        "tp": 128,
-        "fp": 1,
-        "fn": 14,
-        "sensitivity": 0.9014,
-        "ppv": 0.9922,
-        "onMs": {
-          "mean": 16.1,
-          "sd": 52.5,
-          "n": 128
-        },
-        "peakMs": {
-          "mean": 9.8,
-          "sd": 31.7,
-          "n": 128
-        },
-        "offMs": {
-          "mean": -7.3,
-          "sd": 46.8,
-          "n": 128
-        }
-      }
-    },
-    {
-      "split": "held-out",
-      "mode": "detected",
-      "scope": "12 derivações",
-      "records": 16,
-      "p": {
-        "tp": 810,
-        "fp": 290,
-        "fn": 149,
-        "sensitivity": 0.8446,
-        "ppv": 0.7364,
-        "onMs": {
-          "mean": -5.8,
-          "sd": 26,
-          "n": 810
-        },
-        "peakMs": {
-          "mean": 2.2,
-          "sd": 13.3,
-          "n": 810
-        },
-        "offMs": {
-          "mean": 1.2,
-          "sd": 19,
-          "n": 810
-        }
-      },
-      "t": {
-        "tp": 1523,
-        "fp": 17,
-        "fn": 179,
-        "sensitivity": 0.8948,
-        "ppv": 0.989,
-        "onMs": {
-          "mean": 10.2,
-          "sd": 47.1,
-          "n": 1523
-        },
-        "peakMs": {
-          "mean": 5.2,
-          "sd": 31.2,
-          "n": 1523
+          "mean": 3.7,
+          "sd": 15.2,
+          "n": 276
         },
         "offMs": {
           "mean": -5.3,
-          "sd": 55.9,
-          "n": 1523
+          "sd": 21,
+          "n": 276
+        }
+      },
+      "t": {
+        "tp": 349,
+        "fp": 6,
+        "fn": 32,
+        "sensitivity": 0.916,
+        "ppv": 0.9831,
+        "onMs": {
+          "mean": 15.6,
+          "sd": 50.4,
+          "n": 349
+        },
+        "peakMs": {
+          "mean": 4,
+          "sd": 28.5,
+          "n": 349
+        },
+        "offMs": {
+          "mean": -8.7,
+          "sd": 41.3,
+          "n": 349
+        }
+      }
+    },
+    {
+      "split": "tuning",
+      "mode": "detected",
+      "scope": "12 derivações",
+      "records": 47,
+      "p": {
+        "tp": 2835,
+        "fp": 389,
+        "fn": 716,
+        "sensitivity": 0.7984,
+        "ppv": 0.8793,
+        "onMs": {
+          "mean": 4.6,
+          "sd": 32.8,
+          "n": 2835
+        },
+        "peakMs": {
+          "mean": 4.8,
+          "sd": 20,
+          "n": 2835
+        },
+        "offMs": {
+          "mean": -1.1,
+          "sd": 24.6,
+          "n": 2835
+        }
+      },
+      "t": {
+        "tp": 4125,
+        "fp": 114,
+        "fn": 408,
+        "sensitivity": 0.91,
+        "ppv": 0.9731,
+        "onMs": {
+          "mean": 14.8,
+          "sd": 48.8,
+          "n": 4125
+        },
+        "peakMs": {
+          "mean": 2,
+          "sd": 26.7,
+          "n": 4125
+        },
+        "offMs": {
+          "mean": -14.2,
+          "sd": 44.5,
+          "n": 4125
+        }
+      }
+    },
+    {
+      "split": "tuning",
+      "mode": "reference",
+      "scope": "derivação II",
+      "records": 47,
+      "p": {
+        "tp": 280,
+        "fp": 48,
+        "fn": 16,
+        "sensitivity": 0.9459,
+        "ppv": 0.8537,
+        "onMs": {
+          "mean": 2,
+          "sd": 33.5,
+          "n": 280
+        },
+        "peakMs": {
+          "mean": 3.6,
+          "sd": 15.2,
+          "n": 280
+        },
+        "offMs": {
+          "mean": -5.2,
+          "sd": 21.1,
+          "n": 280
+        }
+      },
+      "t": {
+        "tp": 357,
+        "fp": 5,
+        "fn": 24,
+        "sensitivity": 0.937,
+        "ppv": 0.9862,
+        "onMs": {
+          "mean": 16,
+          "sd": 50.2,
+          "n": 357
+        },
+        "peakMs": {
+          "mean": 4.1,
+          "sd": 27.9,
+          "n": 357
+        },
+        "offMs": {
+          "mean": -8.6,
+          "sd": 40.8,
+          "n": 357
+        }
+      }
+    },
+    {
+      "split": "tuning",
+      "mode": "reference",
+      "scope": "12 derivações",
+      "records": 47,
+      "p": {
+        "tp": 2886,
+        "fp": 369,
+        "fn": 665,
+        "sensitivity": 0.8127,
+        "ppv": 0.8866,
+        "onMs": {
+          "mean": 4.6,
+          "sd": 32.7,
+          "n": 2886
+        },
+        "peakMs": {
+          "mean": 4.8,
+          "sd": 19.9,
+          "n": 2886
+        },
+        "offMs": {
+          "mean": -1.1,
+          "sd": 24.7,
+          "n": 2886
+        }
+      },
+      "t": {
+        "tp": 4222,
+        "fp": 98,
+        "fn": 311,
+        "sensitivity": 0.9314,
+        "ppv": 0.9773,
+        "onMs": {
+          "mean": 14.1,
+          "sd": 47.9,
+          "n": 4222
+        },
+        "peakMs": {
+          "mean": 1.8,
+          "sd": 25.5,
+          "n": 4222
+        },
+        "offMs": {
+          "mean": -14.5,
+          "sd": 43.3,
+          "n": 4222
+        }
+      }
+    },
+    {
+      "split": "held-out",
+      "mode": "detected",
+      "scope": "derivação II",
+      "records": 40,
+      "p": {
+        "tp": 260,
+        "fp": 30,
+        "fn": 4,
+        "sensitivity": 0.9848,
+        "ppv": 0.8966,
+        "onMs": {
+          "mean": -0.7,
+          "sd": 26.2,
+          "n": 260
+        },
+        "peakMs": {
+          "mean": 1.4,
+          "sd": 4.9,
+          "n": 260
+        },
+        "offMs": {
+          "mean": -6.3,
+          "sd": 18.5,
+          "n": 260
+        }
+      },
+      "t": {
+        "tp": 326,
+        "fp": 1,
+        "fn": 18,
+        "sensitivity": 0.9477,
+        "ppv": 0.9969,
+        "onMs": {
+          "mean": 12.9,
+          "sd": 47.5,
+          "n": 326
+        },
+        "peakMs": {
+          "mean": 2.4,
+          "sd": 21.7,
+          "n": 326
+        },
+        "offMs": {
+          "mean": -4.8,
+          "sd": 54.6,
+          "n": 326
+        }
+      }
+    },
+    {
+      "split": "held-out",
+      "mode": "detected",
+      "scope": "12 derivações",
+      "records": 40,
+      "p": {
+        "tp": 2556,
+        "fp": 335,
+        "fn": 606,
+        "sensitivity": 0.8083,
+        "ppv": 0.8841,
+        "onMs": {
+          "mean": -0.8,
+          "sd": 26,
+          "n": 2556
+        },
+        "peakMs": {
+          "mean": 2.1,
+          "sd": 11.5,
+          "n": 2556
+        },
+        "offMs": {
+          "mean": -2,
+          "sd": 20.1,
+          "n": 2556
+        }
+      },
+      "t": {
+        "tp": 3811,
+        "fp": 28,
+        "fn": 313,
+        "sensitivity": 0.9241,
+        "ppv": 0.9927,
+        "onMs": {
+          "mean": 13.9,
+          "sd": 47.7,
+          "n": 3811
+        },
+        "peakMs": {
+          "mean": 3.1,
+          "sd": 28.8,
+          "n": 3811
+        },
+        "offMs": {
+          "mean": -6.5,
+          "sd": 59.7,
+          "n": 3811
         }
       }
     },
@@ -329,49 +329,49 @@
       "split": "held-out",
       "mode": "reference",
       "scope": "derivação II",
-      "records": 16,
+      "records": 40,
       "p": {
-        "tp": 80,
-        "fp": 29,
-        "fn": 0,
-        "sensitivity": 1,
-        "ppv": 0.7339,
+        "tp": 260,
+        "fp": 32,
+        "fn": 4,
+        "sensitivity": 0.9848,
+        "ppv": 0.8904,
         "onMs": {
-          "mean": -7.5,
-          "sd": 24.1,
-          "n": 80
+          "mean": -0.4,
+          "sd": 25.8,
+          "n": 260
         },
         "peakMs": {
-          "mean": 0.9,
-          "sd": 3.6,
-          "n": 80
+          "mean": 1.5,
+          "sd": 4.2,
+          "n": 260
         },
         "offMs": {
-          "mean": -4.3,
-          "sd": 12.8,
-          "n": 80
+          "mean": -6.1,
+          "sd": 18.1,
+          "n": 260
         }
       },
       "t": {
-        "tp": 137,
+        "tp": 332,
         "fp": 3,
-        "fn": 5,
-        "sensitivity": 0.9648,
-        "ppv": 0.9786,
+        "fn": 12,
+        "sensitivity": 0.9651,
+        "ppv": 0.991,
         "onMs": {
-          "mean": 22.7,
-          "sd": 51.3,
-          "n": 137
+          "mean": 15.9,
+          "sd": 47.4,
+          "n": 332
         },
         "peakMs": {
-          "mean": 11,
-          "sd": 31.1,
-          "n": 137
+          "mean": 3.1,
+          "sd": 21.9,
+          "n": 332
         },
         "offMs": {
-          "mean": -8.8,
-          "sd": 48.1,
-          "n": 137
+          "mean": -5.4,
+          "sd": 54.7,
+          "n": 332
         }
       }
     },
@@ -379,49 +379,49 @@
       "split": "held-out",
       "mode": "reference",
       "scope": "12 derivações",
-      "records": 16,
+      "records": 40,
       "p": {
-        "tp": 810,
-        "fp": 331,
-        "fn": 149,
-        "sensitivity": 0.8446,
-        "ppv": 0.7099,
+        "tp": 2555,
+        "fp": 370,
+        "fn": 607,
+        "sensitivity": 0.808,
+        "ppv": 0.8735,
         "onMs": {
-          "mean": -5.6,
-          "sd": 25.8,
-          "n": 810
+          "mean": -0.7,
+          "sd": 25.9,
+          "n": 2555
         },
         "peakMs": {
-          "mean": 2.3,
-          "sd": 13.1,
-          "n": 810
+          "mean": 2.1,
+          "sd": 11.4,
+          "n": 2555
         },
         "offMs": {
-          "mean": 1.4,
-          "sd": 18.7,
-          "n": 810
+          "mean": -2,
+          "sd": 20,
+          "n": 2555
         }
       },
       "t": {
-        "tp": 1639,
-        "fp": 33,
-        "fn": 63,
-        "sensitivity": 0.963,
-        "ppv": 0.9803,
+        "tp": 3879,
+        "fp": 54,
+        "fn": 245,
+        "sensitivity": 0.9406,
+        "ppv": 0.9863,
         "onMs": {
-          "mean": 12,
-          "sd": 45.7,
-          "n": 1639
+          "mean": 14.7,
+          "sd": 47.1,
+          "n": 3879
         },
         "peakMs": {
-          "mean": 6,
-          "sd": 30.5,
-          "n": 1639
+          "mean": 3.5,
+          "sd": 28.6,
+          "n": 3879
         },
         "offMs": {
-          "mean": -6.2,
-          "sd": 55,
-          "n": 1639
+          "mean": -6.6,
+          "sd": 59.2,
+          "n": 3879
         }
       }
     },
@@ -429,49 +429,49 @@
       "split": "tuning",
       "mode": "detected",
       "scope": "derivação II, só ritmo sinusal",
-      "records": 17,
+      "records": 41,
       "p": {
-        "tp": 121,
-        "fp": 14,
-        "fn": 5,
-        "sensitivity": 0.9603,
-        "ppv": 0.8963,
+        "tp": 276,
+        "fp": 16,
+        "fn": 20,
+        "sensitivity": 0.9324,
+        "ppv": 0.9452,
         "onMs": {
-          "mean": -4.1,
-          "sd": 28.6,
-          "n": 121
+          "mean": 1.8,
+          "sd": 33.9,
+          "n": 276
         },
         "peakMs": {
-          "mean": 3.8,
-          "sd": 15.6,
-          "n": 121
+          "mean": 3.7,
+          "sd": 15.2,
+          "n": 276
         },
         "offMs": {
-          "mean": -3.2,
-          "sd": 19.1,
-          "n": 121
+          "mean": -5.3,
+          "sd": 21,
+          "n": 276
         }
       },
       "t": {
-        "tp": 139,
-        "fp": 0,
-        "fn": 4,
-        "sensitivity": 0.972,
-        "ppv": 1,
+        "tp": 295,
+        "fp": 1,
+        "fn": 25,
+        "sensitivity": 0.9219,
+        "ppv": 0.9966,
         "onMs": {
-          "mean": 7.1,
-          "sd": 48.1,
-          "n": 139
+          "mean": 13.7,
+          "sd": 49.6,
+          "n": 295
         },
         "peakMs": {
-          "mean": 4.9,
-          "sd": 27.5,
-          "n": 139
+          "mean": 2.4,
+          "sd": 24.9,
+          "n": 295
         },
         "offMs": {
-          "mean": -3.8,
-          "sd": 37.8,
-          "n": 139
+          "mean": -10.2,
+          "sd": 37.5,
+          "n": 295
         }
       }
     },
@@ -479,49 +479,49 @@
       "split": "held-out",
       "mode": "detected",
       "scope": "derivação II, só ritmo sinusal",
-      "records": 11,
+      "records": 34,
       "p": {
-        "tp": 80,
-        "fp": 6,
-        "fn": 0,
-        "sensitivity": 1,
-        "ppv": 0.9302,
+        "tp": 260,
+        "fp": 9,
+        "fn": 4,
+        "sensitivity": 0.9848,
+        "ppv": 0.9665,
         "onMs": {
-          "mean": -8.6,
-          "sd": 25.1,
-          "n": 80
+          "mean": -0.7,
+          "sd": 26.2,
+          "n": 260
         },
         "peakMs": {
-          "mean": 0.3,
-          "sd": 5.6,
-          "n": 80
+          "mean": 1.4,
+          "sd": 4.9,
+          "n": 260
         },
         "offMs": {
-          "mean": -5.1,
-          "sd": 14.8,
-          "n": 80
+          "mean": -6.3,
+          "sd": 18.5,
+          "n": 260
         }
       },
       "t": {
-        "tp": 85,
+        "tp": 276,
         "fp": 0,
-        "fn": 2,
-        "sensitivity": 0.977,
+        "fn": 6,
+        "sensitivity": 0.9787,
         "ppv": 1,
         "onMs": {
-          "mean": 6.8,
-          "sd": 44.7,
-          "n": 85
+          "mean": 9.6,
+          "sd": 44.6,
+          "n": 276
         },
         "peakMs": {
-          "mean": 5.4,
-          "sd": 26.1,
-          "n": 85
+          "mean": 0,
+          "sd": 16.4,
+          "n": 276
         },
         "offMs": {
-          "mean": -9,
-          "sd": 40.2,
-          "n": 85
+          "mean": -4.9,
+          "sd": 54.7,
+          "n": 276
         }
       }
     }

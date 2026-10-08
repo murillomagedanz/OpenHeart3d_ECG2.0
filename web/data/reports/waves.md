@@ -6,23 +6,23 @@ Tolerância de ±150 ms. LUDB: id par = ajuste (tuning), id ímpar = held-out. d
 
 | Escopo | Divisão | Modo | Onda | Reg. | TP | FP | FN | Sens. | VPP | Início (ms) | Pico (ms) | Fim (ms) |
 |---|---|---|---|---:|---:|---:|---:|---:|---:|---|---|---|
-| derivação II | tuning | detected | P | 23 | 121 | 46 | 5 | 0,960 | 0,725 | -4,1 ± 28,6 | 3,8 ± 15,6 | -3,2 ± 19,1 |
-| derivação II | tuning | detected | T | 23 | 193 | 5 | 11 | 0,946 | 0,975 | 12,5 ± 50,4 | 7,1 ± 32,4 | -2,7 ± 44,0 |
-| 12 derivações | tuning | detected | P | 23 | 1236 | 336 | 278 | 0,816 | 0,786 | 2,8 ± 34,0 | 6,3 ± 22,4 | 1,5 ± 24,7 |
-| 12 derivações | tuning | detected | T | 23 | 2214 | 79 | 196 | 0,919 | 0,966 | 12,5 ± 47,4 | 3,3 ± 29,2 | -11,9 ± 47,3 |
-| derivação II | tuning | reference | P | 23 | 122 | 46 | 4 | 0,968 | 0,726 | -3,8 ± 27,8 | 3,8 ± 15,5 | -3,3 ± 19,0 |
-| derivação II | tuning | reference | T | 23 | 195 | 5 | 9 | 0,956 | 0,975 | 13,0 ± 50,2 | 7,0 ± 32,3 | -2,7 ± 43,8 |
-| 12 derivações | tuning | reference | P | 23 | 1244 | 334 | 270 | 0,822 | 0,788 | 2,9 ± 33,8 | 6,3 ± 22,3 | 1,6 ± 24,7 |
-| 12 derivações | tuning | reference | T | 23 | 2236 | 79 | 174 | 0,928 | 0,966 | 12,2 ± 47,0 | 2,9 ± 28,9 | -12,2 ± 47,1 |
-| derivação II | held-out | detected | P | 16 | 80 | 26 | 0 | 1,000 | 0,755 | -8,6 ± 25,1 | 0,3 ± 5,6 | -5,1 ± 14,8 |
-| derivação II | held-out | detected | T | 16 | 128 | 1 | 14 | 0,901 | 0,992 | 16,1 ± 52,5 | 9,8 ± 31,7 | -7,3 ± 46,8 |
-| 12 derivações | held-out | detected | P | 16 | 810 | 290 | 149 | 0,845 | 0,736 | -5,8 ± 26,0 | 2,2 ± 13,3 | 1,2 ± 19,0 |
-| 12 derivações | held-out | detected | T | 16 | 1523 | 17 | 179 | 0,895 | 0,989 | 10,2 ± 47,1 | 5,2 ± 31,2 | -5,3 ± 55,9 |
-| derivação II | held-out | reference | P | 16 | 80 | 29 | 0 | 1,000 | 0,734 | -7,5 ± 24,1 | 0,9 ± 3,6 | -4,3 ± 12,8 |
-| derivação II | held-out | reference | T | 16 | 137 | 3 | 5 | 0,965 | 0,979 | 22,7 ± 51,3 | 11,0 ± 31,1 | -8,8 ± 48,1 |
-| 12 derivações | held-out | reference | P | 16 | 810 | 331 | 149 | 0,845 | 0,710 | -5,6 ± 25,8 | 2,3 ± 13,1 | 1,4 ± 18,7 |
-| 12 derivações | held-out | reference | T | 16 | 1639 | 33 | 63 | 0,963 | 0,980 | 12,0 ± 45,7 | 6,0 ± 30,5 | -6,2 ± 55,0 |
-| derivação II, só ritmo sinusal | tuning | detected | P | 17 | 121 | 14 | 5 | 0,960 | 0,896 | -4,1 ± 28,6 | 3,8 ± 15,6 | -3,2 ± 19,1 |
-| derivação II, só ritmo sinusal | tuning | detected | T | 17 | 139 | 0 | 4 | 0,972 | 1,000 | 7,1 ± 48,1 | 4,9 ± 27,5 | -3,8 ± 37,8 |
-| derivação II, só ritmo sinusal | held-out | detected | P | 11 | 80 | 6 | 0 | 1,000 | 0,930 | -8,6 ± 25,1 | 0,3 ± 5,6 | -5,1 ± 14,8 |
-| derivação II, só ritmo sinusal | held-out | detected | T | 11 | 85 | 0 | 2 | 0,977 | 1,000 | 6,8 ± 44,7 | 5,4 ± 26,1 | -9,0 ± 40,2 |
+| derivação II | tuning | detected | P | 47 | 276 | 48 | 20 | 0,932 | 0,852 | 1,8 ± 33,9 | 3,7 ± 15,2 | -5,3 ± 21,0 |
+| derivação II | tuning | detected | T | 47 | 349 | 6 | 32 | 0,916 | 0,983 | 15,6 ± 50,4 | 4,0 ± 28,5 | -8,7 ± 41,3 |
+| 12 derivações | tuning | detected | P | 47 | 2835 | 389 | 716 | 0,798 | 0,879 | 4,6 ± 32,8 | 4,8 ± 20,0 | -1,1 ± 24,6 |
+| 12 derivações | tuning | detected | T | 47 | 4125 | 114 | 408 | 0,910 | 0,973 | 14,8 ± 48,8 | 2,0 ± 26,7 | -14,2 ± 44,5 |
+| derivação II | tuning | reference | P | 47 | 280 | 48 | 16 | 0,946 | 0,854 | 2,0 ± 33,5 | 3,6 ± 15,2 | -5,2 ± 21,1 |
+| derivação II | tuning | reference | T | 47 | 357 | 5 | 24 | 0,937 | 0,986 | 16,0 ± 50,2 | 4,1 ± 27,9 | -8,6 ± 40,8 |
+| 12 derivações | tuning | reference | P | 47 | 2886 | 369 | 665 | 0,813 | 0,887 | 4,6 ± 32,7 | 4,8 ± 19,9 | -1,1 ± 24,7 |
+| 12 derivações | tuning | reference | T | 47 | 4222 | 98 | 311 | 0,931 | 0,977 | 14,1 ± 47,9 | 1,8 ± 25,5 | -14,5 ± 43,3 |
+| derivação II | held-out | detected | P | 40 | 260 | 30 | 4 | 0,985 | 0,897 | -0,7 ± 26,2 | 1,4 ± 4,9 | -6,3 ± 18,5 |
+| derivação II | held-out | detected | T | 40 | 326 | 1 | 18 | 0,948 | 0,997 | 12,9 ± 47,5 | 2,4 ± 21,7 | -4,8 ± 54,6 |
+| 12 derivações | held-out | detected | P | 40 | 2556 | 335 | 606 | 0,808 | 0,884 | -0,8 ± 26,0 | 2,1 ± 11,5 | -2,0 ± 20,1 |
+| 12 derivações | held-out | detected | T | 40 | 3811 | 28 | 313 | 0,924 | 0,993 | 13,9 ± 47,7 | 3,1 ± 28,8 | -6,5 ± 59,7 |
+| derivação II | held-out | reference | P | 40 | 260 | 32 | 4 | 0,985 | 0,890 | -0,4 ± 25,8 | 1,5 ± 4,2 | -6,1 ± 18,1 |
+| derivação II | held-out | reference | T | 40 | 332 | 3 | 12 | 0,965 | 0,991 | 15,9 ± 47,4 | 3,1 ± 21,9 | -5,4 ± 54,7 |
+| 12 derivações | held-out | reference | P | 40 | 2555 | 370 | 607 | 0,808 | 0,874 | -0,7 ± 25,9 | 2,1 ± 11,4 | -2,0 ± 20,0 |
+| 12 derivações | held-out | reference | T | 40 | 3879 | 54 | 245 | 0,941 | 0,986 | 14,7 ± 47,1 | 3,5 ± 28,6 | -6,6 ± 59,2 |
+| derivação II, só ritmo sinusal | tuning | detected | P | 41 | 276 | 16 | 20 | 0,932 | 0,945 | 1,8 ± 33,9 | 3,7 ± 15,2 | -5,3 ± 21,0 |
+| derivação II, só ritmo sinusal | tuning | detected | T | 41 | 295 | 1 | 25 | 0,922 | 0,997 | 13,7 ± 49,6 | 2,4 ± 24,9 | -10,2 ± 37,5 |
+| derivação II, só ritmo sinusal | held-out | detected | P | 34 | 260 | 9 | 4 | 0,985 | 0,967 | -0,7 ± 26,2 | 1,4 ± 4,9 | -6,3 ± 18,5 |
+| derivação II, só ritmo sinusal | held-out | detected | T | 34 | 276 | 0 | 6 | 0,979 | 1,000 | 9,6 ± 44,6 | 0,0 ± 16,4 | -4,9 ± 54,7 |

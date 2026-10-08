@@ -8,27 +8,27 @@ Janela de ±150 ms; primeiro 1 s ignorado (aquecimento); detecções entre 1 s e
 
 | Grupo | Reg. | Batimentos | FP | FN | Sens. | VPP | Erro médio ± DP (ms) | Mediana \|erro\| (ms) | P95 \|erro\| (ms) |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Total | 40 | 2645 | 6 | 9 | 0,9966 | 0,9977 | -0,4 ± 8,2 | 2,8 | 4,0 |
-| ludb | 39 | 373 | 6 | 8 | 0,9786 | 0,9838 | 9,6 ± 18,9 | 4,0 | 50,0 |
+| Total | 88 | 3068 | 20 | 9 | 0,9971 | 0,9935 | 0,6 ± 12,1 | 2,8 | 10,0 |
+| ludb | 87 | 796 | 20 | 8 | 0,9899 | 0,9752 | 7,9 ± 22,1 | 2,0 | 50,0 |
 | mitdb | 1 | 2272 | 0 | 1 | 0,9996 | 1,0000 | -2,0 ± 1,3 | 2,8 | 2,8 |
 
 ## Por divisão (LUDB)
 
 | Grupo | Reg. | Batimentos | FP | FN | Sens. | VPP | Erro médio ± DP (ms) | Mediana \|erro\| (ms) | P95 \|erro\| (ms) |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| ludb: held-out | 16 | 153 | 5 | 8 | 0,9477 | 0,9667 | 11,0 ± 22,5 | 2,0 | 56,0 |
-| ludb: tuning | 23 | 220 | 1 | 0 | 1,0000 | 0,9955 | 8,6 ± 15,9 | 4,0 | 40,0 |
+| ludb: held-out | 40 | 375 | 5 | 8 | 0,9787 | 0,9866 | 7,8 ± 21,1 | 2,0 | 54,0 |
+| ludb: tuning | 47 | 421 | 15 | 0 | 1,0000 | 0,9656 | 7,9 ± 22,9 | 2,0 | 48,0 |
 
 ## Por ritmo (LUDB)
 
 | Grupo | Reg. | Batimentos | FP | FN | Sens. | VPP | Erro médio ± DP (ms) | Mediana \|erro\| (ms) | P95 \|erro\| (ms) |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| ludb: Atrial fibrillation | 8 | 83 | 1 | 8 | 0,9036 | 0,9868 | 21,4 ± 25,5 | 8,0 | 58,0 |
+| ludb: Atrial fibrillation | 9 | 91 | 1 | 8 | 0,9121 | 0,9881 | 19,5 ± 24,9 | 8,0 | 58,0 |
 | ludb: Atrial flutter, typical | 3 | 41 | 4 | 0 | 1,0000 | 0,9111 | 2,3 ± 3,1 | 2,0 | 8,0 |
 | ludb: Irregular sinus rhythm | 2 | 18 | 0 | 0 | 1,0000 | 1,0000 | 17,9 ± 12,7 | 28,0 | 30,0 |
 | ludb: Sinus arrhythmia | 4 | 38 | 1 | 0 | 1,0000 | 0,9744 | -1,0 ± 6,2 | 2,0 | 10,0 |
-| ludb: Sinus bradycardia | 6 | 41 | 0 | 0 | 1,0000 | 1,0000 | 4,1 ± 8,8 | 2,0 | 28,0 |
-| ludb: Sinus rhythm | 12 | 102 | 0 | 0 | 1,0000 | 1,0000 | 13,2 ± 21,6 | 4,0 | 48,0 |
+| ludb: Sinus bradycardia | 9 | 63 | 0 | 0 | 1,0000 | 1,0000 | 3,3 ± 7,2 | 2,0 | 26,0 |
+| ludb: Sinus rhythm | 56 | 495 | 14 | 0 | 1,0000 | 0,9725 | 8,1 ± 24,8 | 2,0 | 50,0 |
 | ludb: Sinus tachycardia | 4 | 50 | 0 | 0 | 1,0000 | 1,0000 | -0,1 ± 1,8 | 2,0 | 4,0 |
 
 ## Por registro
@@ -75,3 +75,51 @@ Janela de ±150 ms; primeiro 1 s ignorado (aquecimento); detecções entre 1 s e
 | ludb/103 | held-out | Atrial flutter, typical | 500 | II | 13 | 4 | 0 | 1,000 | 0,765 | 0,6 | 2,5 |
 | ludb/108 | tuning | Irregular sinus rhythm | 500 | II | 10 | 0 | 0 | 1,000 | 1,000 | 29,2 | 29,2 |
 | ludb/132 | tuning | Irregular sinus rhythm | 500 | II | 8 | 0 | 0 | 1,000 | 1,000 | 3,7 | 3,7 |
+| ludb/15 | held-out | Sinus rhythm | 500 | II | 8 | 0 | 0 | 1,000 | 1,000 | 6,0 | 6,0 |
+| ludb/18 | tuning | Sinus rhythm | 500 | II | 11 | 0 | 0 | 1,000 | 1,000 | 4,0 | 4,0 |
+| ludb/21 | held-out | Sinus rhythm | 500 | II | 10 | 0 | 0 | 1,000 | 1,000 | 19,6 | 21,2 |
+| ludb/33 | held-out | Sinus rhythm | 500 | II | 8 | 0 | 0 | 1,000 | 1,000 | 1,5 | 5,0 |
+| ludb/36 | tuning | Sinus rhythm | 500 | II | 8 | 0 | 0 | 1,000 | 1,000 | 6,2 | 6,2 |
+| ludb/39 | held-out | Sinus bradycardia | 500 | II | 7 | 0 | 0 | 1,000 | 1,000 | 2,0 | 2,0 |
+| ludb/42 | tuning | Sinus rhythm | 500 | II | 8 | 0 | 0 | 1,000 | 1,000 | 0,3 | 0,3 |
+| ludb/48 | tuning | Sinus rhythm | 500 | II | 7 | 0 | 0 | 1,000 | 1,000 | -1,4 | 1,4 |
+| ludb/54 | tuning | Sinus bradycardia | 500 | II | 7 | 0 | 0 | 1,000 | 1,000 | 2,0 | 2,0 |
+| ludb/57 | held-out | Sinus rhythm | 500 | II | 11 | 0 | 0 | 1,000 | 1,000 | 2,5 | 2,5 |
+| ludb/60 | tuning | Sinus rhythm | 500 | II | 8 | 0 | 0 | 1,000 | 1,000 | 33,7 | 33,7 |
+| ludb/66 | tuning | Sinus rhythm | 500 | II | 6 | 0 | 0 | 1,000 | 1,000 | 1,7 | 1,7 |
+| ludb/69 | held-out | Sinus rhythm | 500 | II | 11 | 0 | 0 | 1,000 | 1,000 | -1,5 | 1,5 |
+| ludb/72 | tuning | Sinus rhythm | 500 | II | 8 | 0 | 0 | 1,000 | 1,000 | 7,2 | 9,3 |
+| ludb/75 | held-out | Sinus rhythm | 500 | II | 9 | 0 | 0 | 1,000 | 1,000 | 3,1 | 3,1 |
+| ludb/78 | tuning | Sinus rhythm | 500 | II | 8 | 0 | 0 | 1,000 | 1,000 | -1,2 | 1,7 |
+| ludb/81 | held-out | Sinus rhythm | 500 | II | 11 | 0 | 0 | 1,000 | 1,000 | 0,5 | 0,5 |
+| ludb/84 | tuning | Sinus rhythm | 500 | II | 8 | 0 | 0 | 1,000 | 1,000 | 0,5 | 0,5 |
+| ludb/87 | held-out | Sinus rhythm | 500 | II | 12 | 0 | 0 | 1,000 | 1,000 | -0,2 | 0,2 |
+| ludb/90 | tuning | Sinus rhythm | 500 | II | 8 | 0 | 0 | 1,000 | 1,000 | 115,8 | 115,8 |
+| ludb/102 | tuning | Sinus rhythm | 500 | II | 9 | 0 | 0 | 1,000 | 1,000 | 2,4 | 2,4 |
+| ludb/105 | held-out | Sinus rhythm | 500 | II | 11 | 0 | 0 | 1,000 | 1,000 | 7,8 | 9,6 |
+| ludb/111 | held-out | Sinus rhythm | 500 | II | 8 | 0 | 0 | 1,000 | 1,000 | 94,8 | 94,8 |
+| ludb/120 | tuning | Sinus rhythm | 500 | II | 8 | 0 | 0 | 1,000 | 1,000 | -3,2 | 3,2 |
+| ludb/123 | held-out | Sinus rhythm | 500 | II | 9 | 0 | 0 | 1,000 | 1,000 | -0,2 | 0,2 |
+| ludb/126 | tuning | Sinus rhythm | 500 | II | 9 | 0 | 0 | 1,000 | 1,000 | 26,9 | 26,9 |
+| ludb/129 | held-out | Atrial fibrillation | 500 | II | 8 | 0 | 0 | 1,000 | 1,000 | 2,0 | 2,0 |
+| ludb/135 | held-out | Sinus rhythm | 500 | II | 9 | 0 | 0 | 1,000 | 1,000 | -1,3 | 1,3 |
+| ludb/138 | tuning | Sinus rhythm | 500 | II | 8 | 0 | 0 | 1,000 | 1,000 | 30,5 | 30,5 |
+| ludb/141 | held-out | Sinus rhythm | 500 | II | 8 | 0 | 0 | 1,000 | 1,000 | 1,5 | 1,5 |
+| ludb/144 | tuning | Sinus rhythm | 500 | II | 9 | 0 | 0 | 1,000 | 1,000 | 4,2 | 4,7 |
+| ludb/147 | held-out | Sinus rhythm | 500 | II | 8 | 0 | 0 | 1,000 | 1,000 | 1,0 | 1,0 |
+| ludb/150 | tuning | Sinus rhythm | 500 | II | 8 | 0 | 0 | 1,000 | 1,000 | -0,5 | 0,5 |
+| ludb/153 | held-out | Sinus rhythm | 500 | II | 8 | 0 | 0 | 1,000 | 1,000 | 1,2 | 1,2 |
+| ludb/159 | held-out | Sinus rhythm | 500 | II | 9 | 0 | 0 | 1,000 | 1,000 | 0,9 | 0,9 |
+| ludb/162 | tuning | Sinus rhythm | 500 | II | 10 | 0 | 0 | 1,000 | 1,000 | 2,0 | 2,0 |
+| ludb/165 | held-out | Sinus rhythm | 500 | II | 9 | 0 | 0 | 1,000 | 1,000 | 2,0 | 2,0 |
+| ludb/168 | tuning | Sinus rhythm | 500 | II | 8 | 0 | 0 | 1,000 | 1,000 | 0,5 | 0,5 |
+| ludb/171 | held-out | Sinus rhythm | 500 | II | 9 | 0 | 0 | 1,000 | 1,000 | 3,6 | 3,6 |
+| ludb/174 | tuning | Sinus rhythm | 500 | II | 8 | 0 | 0 | 1,000 | 1,000 | -0,3 | 0,3 |
+| ludb/177 | held-out | Sinus rhythm | 500 | II | 11 | 0 | 0 | 1,000 | 1,000 | 0,0 | 0,0 |
+| ludb/180 | tuning | Sinus rhythm | 500 | II | 10 | 0 | 0 | 1,000 | 1,000 | 0,8 | 1,6 |
+| ludb/183 | held-out | Sinus rhythm | 500 | II | 11 | 0 | 0 | 1,000 | 1,000 | 1,6 | 1,6 |
+| ludb/186 | tuning | Sinus rhythm | 500 | II | 11 | 0 | 0 | 1,000 | 1,000 | -0,9 | 0,9 |
+| ludb/189 | held-out | Sinus bradycardia | 500 | II | 8 | 0 | 0 | 1,000 | 1,000 | 1,0 | 1,0 |
+| ludb/192 | tuning | Sinus rhythm | 500 | II | 8 | 14 | 0 | 1,000 | 0,364 | -58,5 | 62,0 |
+| ludb/195 | held-out | Sinus rhythm | 500 | II | 9 | 0 | 0 | 1,000 | 1,000 | 1,1 | 1,1 |
+| ludb/198 | tuning | Sinus rhythm | 500 | II | 8 | 0 | 0 | 1,000 | 1,000 | 2,0 | 2,0 |
