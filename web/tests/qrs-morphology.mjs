@@ -8,6 +8,7 @@ import { BEAT_SYMBOLS } from '../src/io/wfdb.js';
 import { matchBeats } from '../src/ecg/scoring.js';
 import { root, readLocalRecord, TOLERANCE_S, WARMUP_S } from './validation-report.mjs';
 import { CappedLevelDetector } from './qrs-capped-level.mjs';
+import { ShadowBank, SHADOW_PROTOCOL } from './qrs-shadow-bank.mjs';
 
 export function labelEvents(refs, events) {
   let i = 0;
@@ -79,20 +80,26 @@ export function causalSlope(signal, center, fs, availableIndex) {
   return { slopeMvPerS: slope, complete: end === index + radius, samples: end - start + 1 };
 }
 
-function replay(rec, notchHz, capped) {
+function replay(rec, notchHz, capped, shadowEnabled = true) {
   const source = new FileSource(rec);
   const pipeline = new SignalPipeline(source.fs, LEAD_NAMES.length, { notchHz, detectionLead: source.detectionLead });
   if (capped) pipeline.detector = new CappedLevelDetector(source.fs);
   const bp = new Float32Array(rec.nSamples);
   const events = [];
   let previousEmission = null;
+  const bank = shadowEnabled ? new ShadowBank() : null;
+  let inGap = false;
   while (!source.done) {
     const sample = source.next();
     const out = pipeline.step(sample);
     const d = pipeline.detector;
     const valid = !(out.mask && out.mask[source.detectionLead]);
     bp[sample.index] = valid ? d.bpHist[(d.idx - 1) % d.bpHist.length] : NaN;
-    if (!valid) previousEmission = null;
+    if (!valid) {
+      previousEmission = null;
+      if (!inGap) bank?.notifyGap();
+    }
+    inGap = !valid;
     if (out.event) {
       const slope = causalSlope(bp, out.event.t + d.groupDelay, source.fs, sample.index);
       const observation = {
@@ -103,11 +110,19 @@ function replay(rec, notchHz, capped) {
         ratio: slope && previousEmission?.slope
           ? slope.slopeMvPerS / previousEmission.slope : null,
       };
-      events.push({ ...out.event, causal: observation });
+      const center = out.event.t + d.groupDelay;
+      const radius = Math.round(SHADOW_PROTOCOL.windowRadiusS * source.fs);
+      const index = Math.round(center * source.fs);
+      const complete = index - radius >= 0 && index + radius <= sample.index;
+      const vector = valid && complete ? Array.from(bp.slice(index - radius, index + radius + 1)) : null;
+      const shadow = bank?.observe(vector, sample.t) ?? null;
+      events.push({ ...out.event, causal: observation, shadow });
       if (valid) previousEmission = { t: out.event.t, slope: observation.slope };
     }
   }
-  return { bp, events, source, groupDelay: pipeline.detector.groupDelay };
+  return { bp, events, source, groupDelay: pipeline.detector.groupDelay,
+    shadowStats: bank ? { created: bank.nextId - 1, active: bank.templates.length,
+      expired: bank.expired, evicted: bank.evicted, gaps: bank.gaps } : null };
 }
 
 function distribution(values) {
@@ -116,7 +131,7 @@ function distribution(values) {
   return { n: a.length, min: q(0), p10: q(0.1), median: q(0.5), p90: q(0.9), max: q(1) };
 }
 
-export async function investigateMorphology(id) {
+export async function investigateMorphology(id, { shadowEnabled = true } = {}) {
   const manifest = JSON.parse(await readFile(path.join(root, 'data', 'manifest.json'), 'utf8'));
   const entry = manifest.records.find((r) => r.id === id && r.bundled);
   if (!entry) throw new Error(`Unknown or unbundled record: ${id}`);
@@ -125,8 +140,8 @@ export async function investigateMorphology(id) {
     .map((a) => ({ t: a.sample / rec.header.fs, symbol: a.symbol })).filter((r) => r.t >= WARMUP_S);
   if (!refs.length) throw new Error(`No beat references: ${id}`);
   const notch = manifest.databases[entry.db].mainsHz;
-  const control = replay(rec, notch, false);
-  const pilot = replay(rec, notch, true);
+  const control = replay(rec, notch, false, shadowEnabled);
+  const pilot = replay(rec, notch, true, shadowEnabled);
   const scored = (events) => events.filter((e) => e.t >= WARMUP_S && e.t <= refs.at(-1).t + TOLERANCE_S);
   const baselineLabels = labelEvents(refs, scored(control.events));
   const baselineHits = new Set(baselineLabels.filter((x) => x.reference).map((x) => x.reference));
@@ -145,6 +160,7 @@ export async function investigateMorphology(id) {
     const row = {
       t: event.t, group, symbol: reference?.symbol ?? null, searchBack: event.searchBack,
       causal: event.causal,
+      shadow: event.shadow,
       intervalFromPreviousEventS: previous ? event.t - previous.t : null,
       amplitudeMv: shape?.amplitudeMv ?? null, slopeMvPerS: shape?.slopeMvPerS ?? null,
       halfWidthMs: shape?.halfWidthMs ?? null, widthCensored: shape?.widthCensored ?? null,
@@ -166,6 +182,18 @@ export async function investigateMorphology(id) {
     && r.intervalFromPreviousEventS !== null && r.slopeRatioToPrevious !== null && r.slopeRatioToPrevious < 0.5);
   const causalFlagged = rows.filter((r) => r.causal.intervalS !== null && r.causal.intervalS >= 0
     && r.causal.intervalS <= 0.36 && r.causal.ratio !== null && r.causal.ratio < 0.5);
+  const summarizeShadow = (items) => {
+    const matureFp = items.filter((r) => !r.reference && r.event.shadow?.matureBefore).length;
+    return {
+      events: items.length,
+      unavailable: items.filter((r) => r.event.shadow?.status === 'unavailable').length,
+      matureTp: items.filter((r) => r.reference && r.event.shadow?.matureBefore).length,
+      matureFp,
+      fp: items.filter((r) => !r.reference).length,
+      matureV: items.filter((r) => r.reference?.symbol === 'V' && r.event.shadow?.matureBefore).length,
+      v: items.filter((r) => r.reference?.symbol === 'V').length,
+    };
+  };
   return {
     id, lead: LEAD_NAMES[pilot.source.detectionLead], signalIndex: pilot.source.mapping[pilot.source.detectionLead],
     baseline: { tp: baseScore.tp, fp: baseScore.fp, fn: baseScore.fn },
@@ -184,6 +212,16 @@ export async function investigateMorphology(id) {
       missingSlope: rows.filter((r) => r.causal.slope === null).length,
       counterexamples: causalFlagged.filter((r) => r.group !== 'fp'),
     },
+    shadow: shadowEnabled ? {
+      protocol: SHADOW_PROTOCOL,
+      control: { ...control.shadowStats, ...summarizeShadow(baselineLabels) },
+      cap2: { ...pilot.shadowStats, ...summarizeShadow(labels),
+        matureRecoveredN: rows.filter((r) => r.group === 'recoveredN' && r.shadow.matureBefore).length,
+        recoveredN: rows.filter((r) => r.group === 'recoveredN').length },
+      ventricularCounterexamples: causalFlagged.filter((r) => r.group !== 'fp').map((r) => ({
+        t: r.t, symbol: r.symbol, shadow: r.shadow,
+      })),
+    } : null,
     events: rows,
   };
 }
@@ -207,6 +245,11 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
       causalFlaggedFp: results.reduce((n, r) => n + r.causalScreen.flaggedFp, 0),
       causalFlaggedTp: results.reduce((n, r) => n + r.causalScreen.flaggedTp, 0),
       causalFlaggedRecoveredN: results.reduce((n, r) => n + r.causalScreen.flaggedRecoveredN, 0),
+      shadowTotals: Object.fromEntries(['control', 'cap2'].map((mode) => [
+        mode, Object.fromEntries(['events', 'unavailable', 'matureTp', 'matureFp', 'fp', 'matureV', 'v',
+          'created', 'expired', 'evicted'].map((key) =>
+          [key, results.reduce((n, r) => n + r.shadow[mode][key], 0)])),
+      ])),
       perRecord: results,
     }, null, 2));
   } else {

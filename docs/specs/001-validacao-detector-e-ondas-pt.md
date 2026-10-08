@@ -237,3 +237,60 @@ Alternativas a comparar conceitualmente antes de escolher o piloto:
 Avaliar cobertura de morfologias raras, contaminação por FP, tempo para maturar, respostas às lacunas e ruído, CPU/memória e atraso; publicar bootstrap/cold start e falhas. Comparar controle original, cap 2 e sombra sem promoção; se houver evidência de separação, congelar uma regra e fazer ablação no replay completo. Manter os critérios da seção 9 e preservação dos três V do 210; reservar registros novos antes da seleção final. Não tratar o banco atual como teste independente nem usar classificações N/V online. A presente entrega é **revisão teórica e definição de riscos**, não implementação ou validação do banco de templates.
 
 **Pendências bibliográficas:** leitura integral de R2, R4 e R5 antes de atribuir-lhes regras operacionais; verificar causalidade e janela de R5 e detalhes de clustering de R8 antes de usar seus métodos. Os resumos foram consultados via [API pública Europe PMC](https://www.ebi.ac.uk/europepmc/webservices/rest/search) (`resultType=core`, título ou PMID); essas limitações ficam explícitas para que metadados/resumos não sejam apresentados como estudo integral.
+
+## 15. Diretriz de pesquisa e primeira memória em modo sombra
+
+**Diretriz do usuário:** referências externas úteis devem ser citadas e documentadas como apoio, sem reorientar nossa linha de investigação. Concluir primeiro a sequência derivada dos achados locais (energia V/N, FP pós-complexo, contraexemplos ventriculares e memória morfológica), antes de considerar desvios. A bibliografia da seção 14 não substitui nossos critérios, nem transforma esta sonda numa reprodução dos artigos citados.
+
+Foi implementada **somente em testes** a memória `tests/qrs-shadow-bank.mjs`, conectada à auditoria de morfologia durante o replay. Não recebe símbolos N/V, rótulos FP/TP ou tempos anotados, não consulta anotações para se atualizar e não modifica detecções, RR, limiares ou reservas. Executar:
+
+```powershell
+node tests\qrs-morphology.mjs mitdb/228 mitdb/210 mitdb/108 mitdb/207
+node tests\qrs-morphology.mjs --all
+node --test tests\qrs-shadow-bank.test.mjs tests\qrs-morphology.test.mjs
+```
+
+### 15.1. Protocolo fixado antes da primeira execução
+
+- Até **4 templates** ativos, correlação assinada mínima **0,90**, atualização por peso **0,125**. Remover a média e normalizar a norma do vetor: escala de amplitude não define uma nova morfologia; inversão de polaridade pode defini-la. Não há realinhamento ou ajuste por anotações.
+- Janela ±80 ms no passa-banda interno, alinhada ao pico emitido mais atraso de grupo. Só observar vetor completo e finito **já disponível na emissão**; janela incompleta, lacuna ou vetor sem variação → `unavailable`, sem aprendizado. Isso é uma guarda de integridade, **não um índice de qualidade que prove ausência de ruído**.
+- Declarar correspondência com template maduro somente se ele teve **pelo menos 3 observações anteriores**. O evento corrente não cria retroativamente sua própria evidência de maturidade. Não há classe clínica ou probabilidade associada a essa contagem.
+- Expirar após **30 s sem correspondência**, expulsar o menos recentemente observado quando atingir a capacidade, e zerar a memória no início de lacuna. IDs não são reutilizados. Aprender em ordem de emissão, incluindo o aquecimento; resumir os eventos na janela oficial de pontuação.
+- Controle original e cap 2 recebem bancos independentes. Rótulos são cruzados depois, usando o pareamento guloso já verificado. Um evento que cria template, não corresponde ou está indisponível continua emitido normalmente.
+
+São parâmetros de **sonda**, escolhidos para expor riscos, não otimização de desempenho ou reprodução da literatura. Não foram reajustados após observar os resultados.
+
+### 15.2. Resultados observacionais
+
+Nos 101 registros, o controle mantém **30.418 TP / 582 FP / 435 FN**, e cap 2 mantém **30.763 / 632 / 90**. Teste liga/desliga da sombra compara evento a evento e confirma ausência de mudança no 228, incluindo medições causais; todos os controles são novamente conferidos contra o relatório congelado.
+
+| Sonda nos 101 registros | Controle original | Cap 2 |
+|---|---:|---:|
+| Emissões pontuadas | 31.000 | 31.395 |
+| Vetor indisponível | 3.575 | 3.690 |
+| TP correspondentes a template previamente maduro | 25.771 | 26.146 |
+| FP correspondentes a template previamente maduro | 133 / 582 | 135 / 632 |
+| V pareados correspondentes a template previamente maduro | 1.602 / 4.073 | 1.562 / 4.077 |
+| Templates criados (soma por registro) | 776 | 725 |
+| Templates expirados / expulsos | 335 / 307 | 347 / 243 |
+
+Os denominadores de V acima são **V já pareados**, não todos os V anotados; não medem sensibilidade ventricular. Templates criados podem incluir eventos do aquecimento ou além do limite pontuado; contagens de TP/FP só incluem a janela oficial.
+
+| Registro, cap 2 | FP com correspondência madura / FP | V com correspondência madura / V pareados | N recuperados com correspondência madura |
+|---|---:|---:|---:|
+| 228 | 1 / 48 | 110 / 362 | 240 / 341 |
+| 210 | 1 / 3 | 56 / 181 | 0 (nenhum recuperado) |
+| 108 | 79 / 167 | 2 / 17 | 0 (nenhum recuperado) |
+| 207 | 52 / 373 | 30 / 97 | 0 (nenhum recuperado) |
+
+No 210, o V em 602,178 s cria template novo (melhor similaridade anterior 0,8984); o V em 609,808 s corresponde a esse template com 0,9942, mas só há **uma observação anterior**. O V em 945,772 s cria outro template (similaridade anterior 0,8611). Os três estão **não maduros**. Exigir correspondência madura como condição de aceitação os colocaria em risco, justamente os contraexemplos que precisamos preservar.
+
+### 15.3. Interpretação e continuidade sem desvio
+
+A sonda confirma que morfologias repetidas dos N recuperados podem adquirir memória, mas não demonstra recuperação pelo detector original: os 240 N reconhecidos foram emitidos pelo **cap 2**, ainda não promovido. Treinar só em eventos originalmente detectados deixa sem observação os N originalmente perdidos. Não usar essas contagens como prova de detecção independente ou ganho clínico.
+
+**Contaminação observada:** 135 FP no cap 2 já encontram template maduro. Essa medida não identifica pureza de cada cluster ou a identidade T/ruído de cada FP; demonstra que recorrência não equivale a QRS verdadeiro. No 108, ruído/ondas recorrentes podem reforçar memória; no 207, a avaliabilidade do flutter permanece separada da validade morfológica. Não excluir esses trechos nem chamar templates maduros de “confiáveis” sem outra evidência.
+
+**Limites:** só observar janelas completas perde cobertura; não há ajuste de alinhamento, níveis de energia por cluster, decisão de qualidade, sondagem de N não emitidos ou recuperação ativa. O banco usa memória limitada de vetores, mas o executor de pesquisa ainda guarda o registro inteiro e faz medições offline; não é implementação streaming pronta para produto. CPU e bytes totais do executor não foram aferidos nesta entrega. A sombra não impõe espera adicional, porque vetores incompletos são omitidos, não completados no futuro.
+
+**Próximo teste na mesma linha:** medir correspondência prévia para candidatas abaixo do limiar, em modo consulta **sem aprendizado por essas candidatas**. Comparar cobertura de N perdidos versus FP, usando template formado exclusivamente no passado; registrar separadamente banco do controle e banco cap 2. Essa ablação enfrenta o conflito de cold start sem permitir auto-confirmação. Eventos novos/imaturos não serão vetados, preservando o caminho dos V prematuros; qualidade e maturidade não terão poder de rejeição nesta fase. Só após essa evidência considerar níveis de energia por morfologia ou uma intervenção causal, mantendo os critérios originais e a avaliação independente pendente.
