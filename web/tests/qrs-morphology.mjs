@@ -64,19 +64,48 @@ export function correlation(a, b) {
   return aa && bb ? dot / Math.sqrt(aa * bb) : null;
 }
 
+export function causalSlope(signal, center, fs, availableIndex) {
+  const radius = Math.round(0.08 * fs);
+  const lag = Math.max(1, Math.round(0.01 * fs));
+  const index = Math.round(center * fs);
+  const start = index - radius;
+  const end = Math.min(index + radius, availableIndex, signal.length - 1);
+  if (start - lag < 0 || end < start) return null;
+  let slope = 0;
+  for (let k = start - lag; k <= end; k++) {
+    if (!Number.isFinite(signal[k])) return null;
+    if (k >= start) slope = Math.max(slope, Math.abs(signal[k] - signal[k - lag]) * fs / lag);
+  }
+  return { slopeMvPerS: slope, complete: end === index + radius, samples: end - start + 1 };
+}
+
 function replay(rec, notchHz, capped) {
   const source = new FileSource(rec);
   const pipeline = new SignalPipeline(source.fs, LEAD_NAMES.length, { notchHz, detectionLead: source.detectionLead });
   if (capped) pipeline.detector = new CappedLevelDetector(source.fs);
   const bp = new Float32Array(rec.nSamples);
   const events = [];
+  let previousEmission = null;
   while (!source.done) {
     const sample = source.next();
     const out = pipeline.step(sample);
     const d = pipeline.detector;
     const valid = !(out.mask && out.mask[source.detectionLead]);
     bp[sample.index] = valid ? d.bpHist[(d.idx - 1) % d.bpHist.length] : NaN;
-    if (out.event) events.push(out.event);
+    if (!valid) previousEmission = null;
+    if (out.event) {
+      const slope = causalSlope(bp, out.event.t + d.groupDelay, source.fs, sample.index);
+      const observation = {
+        emittedAt: sample.t,
+        intervalS: previousEmission ? out.event.t - previousEmission.t : null,
+        slope: slope?.slopeMvPerS ?? null,
+        complete: slope?.complete ?? false,
+        ratio: slope && previousEmission?.slope
+          ? slope.slopeMvPerS / previousEmission.slope : null,
+      };
+      events.push({ ...out.event, causal: observation });
+      if (valid) previousEmission = { t: out.event.t, slope: observation.slope };
+    }
   }
   return { bp, events, source, groupDelay: pipeline.detector.groupDelay };
 }
@@ -115,6 +144,7 @@ export async function investigateMorphology(id) {
     const group = !reference ? 'fp' : baselineHits.has(reference) ? 'retained' : reference.symbol === 'N' ? 'recoveredN' : 'recoveredOther';
     const row = {
       t: event.t, group, symbol: reference?.symbol ?? null, searchBack: event.searchBack,
+      causal: event.causal,
       intervalFromPreviousEventS: previous ? event.t - previous.t : null,
       amplitudeMv: shape?.amplitudeMv ?? null, slopeMvPerS: shape?.slopeMvPerS ?? null,
       halfWidthMs: shape?.halfWidthMs ?? null, widthCensored: shape?.widthCensored ?? null,
@@ -134,6 +164,8 @@ export async function investigateMorphology(id) {
   // Observational screen, fixed before measurement; never changes emitted events.
   const flagged = rows.filter((r) => r.intervalFromPreviousEventS <= 0.36
     && r.intervalFromPreviousEventS !== null && r.slopeRatioToPrevious !== null && r.slopeRatioToPrevious < 0.5);
+  const causalFlagged = rows.filter((r) => r.causal.intervalS !== null && r.causal.intervalS >= 0
+    && r.causal.intervalS <= 0.36 && r.causal.ratio !== null && r.causal.ratio < 0.5);
   return {
     id, lead: LEAD_NAMES[pilot.source.detectionLead], signalIndex: pilot.source.mapping[pilot.source.detectionLead],
     baseline: { tp: baseScore.tp, fp: baseScore.fp, fn: baseScore.fn },
@@ -143,6 +175,15 @@ export async function investigateMorphology(id) {
       flaggedFp: flagged.filter((r) => r.group === 'fp').length,
       flaggedTp: flagged.filter((r) => r.group !== 'fp').length,
       flaggedRecoveredN: flagged.filter((r) => r.group === 'recoveredN').length },
+    causalScreen: {
+      rule: 'emission-order previous interval in [0,360ms] and available-sample slope ratio <0.5',
+      flaggedFp: causalFlagged.filter((r) => r.group === 'fp').length,
+      flaggedTp: causalFlagged.filter((r) => r.group !== 'fp').length,
+      flaggedRecoveredN: causalFlagged.filter((r) => r.group === 'recoveredN').length,
+      incompleteWindows: rows.filter((r) => !r.causal.complete).length,
+      missingSlope: rows.filter((r) => r.causal.slope === null).length,
+      counterexamples: causalFlagged.filter((r) => r.group !== 'fp'),
+    },
     events: rows,
   };
 }
@@ -163,6 +204,9 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
       flaggedFp: results.reduce((n, r) => n + r.screen.flaggedFp, 0),
       flaggedTp: results.reduce((n, r) => n + r.screen.flaggedTp, 0),
       flaggedRecoveredN: results.reduce((n, r) => n + r.screen.flaggedRecoveredN, 0),
+      causalFlaggedFp: results.reduce((n, r) => n + r.causalScreen.flaggedFp, 0),
+      causalFlaggedTp: results.reduce((n, r) => n + r.causalScreen.flaggedTp, 0),
+      causalFlaggedRecoveredN: results.reduce((n, r) => n + r.causalScreen.flaggedRecoveredN, 0),
       perRecord: results,
     }, null, 2));
   } else {

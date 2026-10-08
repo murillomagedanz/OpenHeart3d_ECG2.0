@@ -166,3 +166,32 @@ As medidas usam o passa-banda **interno** do detector, com janela ±80 ms centra
 Esta triagem **não remove eventos**, não altera níveis ou RR, não mede ganho de um detector modificado e não representa validação independente. A conta estática de 48−36=12 FP no 228 não pode ser tomada como resultado de streaming: rejeitar um evento muda reservas, RR, aprendizado e decisões subsequentes. Além disso, a janela morfológica observa até 80 ms depois do centro; uma implementação causal precisa aguardar essas amostras e contabilizar a latência, ou definir outra medida causal e avaliá-la separadamente.
 
 **Próxima etapa delimitada:** formular um único discriminador causal de candidata pós-complexo, preservando explicitamente os TP do 210; comparar replay completo, e não pós-filtragem da lista. Manter cap 2 como hipótese não promovida, publicar efeito adicional versus cap 2 e versus referência original, e só considerar promoção após os critérios piloto e avaliação final independente. Nesta entrega não se executa uma terceira alteração do detector.
+
+## 13. Auditoria causal e contraexemplos ventriculares
+
+Antes de formular o terceiro experimento, a investigação foi estendida para medir a inclinação **no instante em que o pipeline emite o evento**, sem usar amostras futuras. O mesmo comando `node tests\qrs-morphology.mjs --all` agora inclui `causalScreen` por registro e os totais `causalFlaggedFp`, `causalFlaggedTp` e `causalFlaggedRecoveredN`. Os JSONs por registro incluem os valores por evento e os TP sinalizados como `counterexamples`.
+
+**Procedimento:** o replay mede a inclinação no passa-banda já disponível, da borda esquerda da janela ±80 ms até o menor índice entre a borda direita e a amostra atual. Marca explicitamente quando a janela está incompleta. A razão usa a medida armazenada na emissão anterior, em ordem de emissão (não uma recomputação futura nem a ordem dos picos após ordenação para pontuação). Uma lacuna invalida a comparação com a emissão anterior. Rótulos FP/TP e símbolos são cruzados somente depois da medição. Testes de prefixo e mutação de amostras futuras comprovam que estas não influenciam a medida.
+
+| Conjunto | FP sinalizados offline | FP sinalizados causalmente | TP sinalizados causalmente | N recuperados sinalizados |
+|---|---:|---:|---:|---:|
+| 228 | 36 | 36 | 0 | 0 |
+| 108 | 2 | 2 | 0 | 0 |
+| 207 | 1 | 1 | 0 | 0 |
+| Todos os 101 registros | 45 | 44 | 3 | 0 |
+
+A única diferença na contagem de FP é LUDB 192 (4 offline → 3 causal). Há 3.690 janelas incompletas no conjunto; nenhuma medida de inclinação ausente nesses registros. No 228, 246 janelas estão incompletas. Isso não impede medir a inclinação observada, mas ela não equivale necessariamente ao máximo da janela completa. As contagens de detecção e os controles permanecem idênticos aos da seção 12; a auditoria não rejeita eventos nem acrescenta latência ao detector.
+
+Os **três TP do MIT-BIH 210 são V anotados** e já detectados na referência original:
+
+| Pico estimado (s) | Emissão (s) | Intervalo para emissão anterior, medido entre picos (ms) | Razão causal de inclinação | Correlação offline | Janela causal |
+|---:|---:|---:|---:|---:|---|
+| 602,178 | 602,311 | 352,8 | 0,4707 | −0,7962 | Completa |
+| 609,808 | 609,936 | 325,0 | 0,4952 | −0,7631 | Completa |
+| 945,772 | 945,903 | 344,4 | 0,4929 | −0,8756 | Completa |
+
+Logo, os contraexemplos não decorrem de falta de amostras ou uso de informação futura: são complexos ventriculares reais precoces, com menor inclinação relativa e correlação negativa, características compartilhadas com parte dos FP. Aumentar cegamente o refratário, rejeitar por inversão de polaridade ou simplesmente acrescentar correlação negativa à regra também pode suprimir esses V.
+
+**Decisão de pesquisa:** não promover a triagem temporal/inclinação a discriminador. Não escolher um novo limiar apenas para ficar abaixo das razões dos três V conhecidos: isso seria ajuste retrospectivo no conjunto já inspecionado, não evidência de generalização. O caso 210 passa a ser contraexemplo explícito e coberto por teste. A hipótese de T/redetecção no 228 continua não confirmada por anotações de onda.
+
+**Próxima investigação arquitetural:** comparar modelos que mantenham mais de uma morfologia/escala de energia plausível, em vez de um único nível adaptativo mais rejeição temporal universal. Antes de codificar outra correção, definir como uma candidata de baixa energia é reconhecida sem consultar anotações, como a confiança é adquirida/perdida em ruído e como V prematuros são preservados. Só então implementar um piloto causal isolado, com ablação contra cap 2, controle original, regressão 210 e custo/latência medidos. Registros já analisados continuam sendo desenvolvimento/regressão; a validação independente permanece pendente. Nenhuma alteração de produção foi realizada nesta auditoria.
