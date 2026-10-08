@@ -1,0 +1,529 @@
+{
+  "schema": "openheart3d.ecg.waves-report",
+  "version": 1,
+  "protocol": {
+    "toleranceMs": 150,
+    "split": "LUDB: id par = ajuste (tuning), id ímpar = held-out",
+    "modes": "detected = R do detector; reference = R anotado (isola o delineador)",
+    "note": "FA/flutter não têm onda P anotada: P detectadas nesses registros contam como FP",
+    "params": {
+      "smoothS": 0.03,
+      "rRefineS": 0.04,
+      "qrsSlopeFrac": 0.1,
+      "qrsMaxHalfS": 0.12,
+      "tStartS": 0.03,
+      "tMaxEndS": 0.6,
+      "tRrFrac": 0.7,
+      "pMaxBackS": 0.32,
+      "pEndGapS": 0.02,
+      "minWindowS": 0.05,
+      "marginS": 0.015,
+      "minAmpP": 0.02,
+      "minAmpT": 0.03,
+      "noiseK": 3,
+      "edgeFrac": 0.1
+    }
+  },
+  "groups": [
+    {
+      "split": "tuning",
+      "mode": "detected",
+      "scope": "derivação II",
+      "records": 23,
+      "p": {
+        "tp": 121,
+        "fp": 46,
+        "fn": 5,
+        "sensitivity": 0.9603,
+        "ppv": 0.7246,
+        "onMs": {
+          "mean": -4.1,
+          "sd": 28.6,
+          "n": 121
+        },
+        "peakMs": {
+          "mean": 3.8,
+          "sd": 15.6,
+          "n": 121
+        },
+        "offMs": {
+          "mean": -3.2,
+          "sd": 19.1,
+          "n": 121
+        }
+      },
+      "t": {
+        "tp": 193,
+        "fp": 5,
+        "fn": 11,
+        "sensitivity": 0.9461,
+        "ppv": 0.9747,
+        "onMs": {
+          "mean": 12.5,
+          "sd": 50.4,
+          "n": 193
+        },
+        "peakMs": {
+          "mean": 7.1,
+          "sd": 32.4,
+          "n": 193
+        },
+        "offMs": {
+          "mean": -2.7,
+          "sd": 44,
+          "n": 193
+        }
+      }
+    },
+    {
+      "split": "tuning",
+      "mode": "detected",
+      "scope": "12 derivações",
+      "records": 23,
+      "p": {
+        "tp": 1236,
+        "fp": 336,
+        "fn": 278,
+        "sensitivity": 0.8164,
+        "ppv": 0.7863,
+        "onMs": {
+          "mean": 2.8,
+          "sd": 34,
+          "n": 1236
+        },
+        "peakMs": {
+          "mean": 6.3,
+          "sd": 22.4,
+          "n": 1236
+        },
+        "offMs": {
+          "mean": 1.5,
+          "sd": 24.7,
+          "n": 1236
+        }
+      },
+      "t": {
+        "tp": 2214,
+        "fp": 79,
+        "fn": 196,
+        "sensitivity": 0.9187,
+        "ppv": 0.9655,
+        "onMs": {
+          "mean": 12.5,
+          "sd": 47.4,
+          "n": 2214
+        },
+        "peakMs": {
+          "mean": 3.3,
+          "sd": 29.2,
+          "n": 2214
+        },
+        "offMs": {
+          "mean": -11.9,
+          "sd": 47.3,
+          "n": 2214
+        }
+      }
+    },
+    {
+      "split": "tuning",
+      "mode": "reference",
+      "scope": "derivação II",
+      "records": 23,
+      "p": {
+        "tp": 122,
+        "fp": 46,
+        "fn": 4,
+        "sensitivity": 0.9683,
+        "ppv": 0.7262,
+        "onMs": {
+          "mean": -3.8,
+          "sd": 27.8,
+          "n": 122
+        },
+        "peakMs": {
+          "mean": 3.8,
+          "sd": 15.5,
+          "n": 122
+        },
+        "offMs": {
+          "mean": -3.3,
+          "sd": 19,
+          "n": 122
+        }
+      },
+      "t": {
+        "tp": 195,
+        "fp": 5,
+        "fn": 9,
+        "sensitivity": 0.9559,
+        "ppv": 0.975,
+        "onMs": {
+          "mean": 13,
+          "sd": 50.2,
+          "n": 195
+        },
+        "peakMs": {
+          "mean": 7,
+          "sd": 32.3,
+          "n": 195
+        },
+        "offMs": {
+          "mean": -2.7,
+          "sd": 43.8,
+          "n": 195
+        }
+      }
+    },
+    {
+      "split": "tuning",
+      "mode": "reference",
+      "scope": "12 derivações",
+      "records": 23,
+      "p": {
+        "tp": 1244,
+        "fp": 334,
+        "fn": 270,
+        "sensitivity": 0.8217,
+        "ppv": 0.7883,
+        "onMs": {
+          "mean": 2.9,
+          "sd": 33.8,
+          "n": 1244
+        },
+        "peakMs": {
+          "mean": 6.3,
+          "sd": 22.3,
+          "n": 1244
+        },
+        "offMs": {
+          "mean": 1.6,
+          "sd": 24.7,
+          "n": 1244
+        }
+      },
+      "t": {
+        "tp": 2236,
+        "fp": 79,
+        "fn": 174,
+        "sensitivity": 0.9278,
+        "ppv": 0.9659,
+        "onMs": {
+          "mean": 12.2,
+          "sd": 47,
+          "n": 2236
+        },
+        "peakMs": {
+          "mean": 2.9,
+          "sd": 28.9,
+          "n": 2236
+        },
+        "offMs": {
+          "mean": -12.2,
+          "sd": 47.1,
+          "n": 2236
+        }
+      }
+    },
+    {
+      "split": "held-out",
+      "mode": "detected",
+      "scope": "derivação II",
+      "records": 16,
+      "p": {
+        "tp": 80,
+        "fp": 26,
+        "fn": 0,
+        "sensitivity": 1,
+        "ppv": 0.7547,
+        "onMs": {
+          "mean": -8.6,
+          "sd": 25.1,
+          "n": 80
+        },
+        "peakMs": {
+          "mean": 0.3,
+          "sd": 5.6,
+          "n": 80
+        },
+        "offMs": {
+          "mean": -5.1,
+          "sd": 14.8,
+          "n": 80
+        }
+      },
+      "t": {
+        "tp": 128,
+        "fp": 1,
+        "fn": 14,
+        "sensitivity": 0.9014,
+        "ppv": 0.9922,
+        "onMs": {
+          "mean": 16.1,
+          "sd": 52.5,
+          "n": 128
+        },
+        "peakMs": {
+          "mean": 9.8,
+          "sd": 31.7,
+          "n": 128
+        },
+        "offMs": {
+          "mean": -7.3,
+          "sd": 46.8,
+          "n": 128
+        }
+      }
+    },
+    {
+      "split": "held-out",
+      "mode": "detected",
+      "scope": "12 derivações",
+      "records": 16,
+      "p": {
+        "tp": 810,
+        "fp": 290,
+        "fn": 149,
+        "sensitivity": 0.8446,
+        "ppv": 0.7364,
+        "onMs": {
+          "mean": -5.8,
+          "sd": 26,
+          "n": 810
+        },
+        "peakMs": {
+          "mean": 2.2,
+          "sd": 13.3,
+          "n": 810
+        },
+        "offMs": {
+          "mean": 1.2,
+          "sd": 19,
+          "n": 810
+        }
+      },
+      "t": {
+        "tp": 1523,
+        "fp": 17,
+        "fn": 179,
+        "sensitivity": 0.8948,
+        "ppv": 0.989,
+        "onMs": {
+          "mean": 10.2,
+          "sd": 47.1,
+          "n": 1523
+        },
+        "peakMs": {
+          "mean": 5.2,
+          "sd": 31.2,
+          "n": 1523
+        },
+        "offMs": {
+          "mean": -5.3,
+          "sd": 55.9,
+          "n": 1523
+        }
+      }
+    },
+    {
+      "split": "held-out",
+      "mode": "reference",
+      "scope": "derivação II",
+      "records": 16,
+      "p": {
+        "tp": 80,
+        "fp": 29,
+        "fn": 0,
+        "sensitivity": 1,
+        "ppv": 0.7339,
+        "onMs": {
+          "mean": -7.5,
+          "sd": 24.1,
+          "n": 80
+        },
+        "peakMs": {
+          "mean": 0.9,
+          "sd": 3.6,
+          "n": 80
+        },
+        "offMs": {
+          "mean": -4.3,
+          "sd": 12.8,
+          "n": 80
+        }
+      },
+      "t": {
+        "tp": 137,
+        "fp": 3,
+        "fn": 5,
+        "sensitivity": 0.9648,
+        "ppv": 0.9786,
+        "onMs": {
+          "mean": 22.7,
+          "sd": 51.3,
+          "n": 137
+        },
+        "peakMs": {
+          "mean": 11,
+          "sd": 31.1,
+          "n": 137
+        },
+        "offMs": {
+          "mean": -8.8,
+          "sd": 48.1,
+          "n": 137
+        }
+      }
+    },
+    {
+      "split": "held-out",
+      "mode": "reference",
+      "scope": "12 derivações",
+      "records": 16,
+      "p": {
+        "tp": 810,
+        "fp": 331,
+        "fn": 149,
+        "sensitivity": 0.8446,
+        "ppv": 0.7099,
+        "onMs": {
+          "mean": -5.6,
+          "sd": 25.8,
+          "n": 810
+        },
+        "peakMs": {
+          "mean": 2.3,
+          "sd": 13.1,
+          "n": 810
+        },
+        "offMs": {
+          "mean": 1.4,
+          "sd": 18.7,
+          "n": 810
+        }
+      },
+      "t": {
+        "tp": 1639,
+        "fp": 33,
+        "fn": 63,
+        "sensitivity": 0.963,
+        "ppv": 0.9803,
+        "onMs": {
+          "mean": 12,
+          "sd": 45.7,
+          "n": 1639
+        },
+        "peakMs": {
+          "mean": 6,
+          "sd": 30.5,
+          "n": 1639
+        },
+        "offMs": {
+          "mean": -6.2,
+          "sd": 55,
+          "n": 1639
+        }
+      }
+    },
+    {
+      "split": "tuning",
+      "mode": "detected",
+      "scope": "derivação II, só ritmo sinusal",
+      "records": 17,
+      "p": {
+        "tp": 121,
+        "fp": 14,
+        "fn": 5,
+        "sensitivity": 0.9603,
+        "ppv": 0.8963,
+        "onMs": {
+          "mean": -4.1,
+          "sd": 28.6,
+          "n": 121
+        },
+        "peakMs": {
+          "mean": 3.8,
+          "sd": 15.6,
+          "n": 121
+        },
+        "offMs": {
+          "mean": -3.2,
+          "sd": 19.1,
+          "n": 121
+        }
+      },
+      "t": {
+        "tp": 139,
+        "fp": 0,
+        "fn": 4,
+        "sensitivity": 0.972,
+        "ppv": 1,
+        "onMs": {
+          "mean": 7.1,
+          "sd": 48.1,
+          "n": 139
+        },
+        "peakMs": {
+          "mean": 4.9,
+          "sd": 27.5,
+          "n": 139
+        },
+        "offMs": {
+          "mean": -3.8,
+          "sd": 37.8,
+          "n": 139
+        }
+      }
+    },
+    {
+      "split": "held-out",
+      "mode": "detected",
+      "scope": "derivação II, só ritmo sinusal",
+      "records": 11,
+      "p": {
+        "tp": 80,
+        "fp": 6,
+        "fn": 0,
+        "sensitivity": 1,
+        "ppv": 0.9302,
+        "onMs": {
+          "mean": -8.6,
+          "sd": 25.1,
+          "n": 80
+        },
+        "peakMs": {
+          "mean": 0.3,
+          "sd": 5.6,
+          "n": 80
+        },
+        "offMs": {
+          "mean": -5.1,
+          "sd": 14.8,
+          "n": 80
+        }
+      },
+      "t": {
+        "tp": 85,
+        "fp": 0,
+        "fn": 2,
+        "sensitivity": 0.977,
+        "ppv": 1,
+        "onMs": {
+          "mean": 6.8,
+          "sd": 44.7,
+          "n": 85
+        },
+        "peakMs": {
+          "mean": 5.4,
+          "sd": 26.1,
+          "n": 85
+        },
+        "offMs": {
+          "mean": -9,
+          "sd": 40.2,
+          "n": 85
+        }
+      }
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 # SDD 001 — Validação reprodutível do detector de QRS e detecção/visualização de ondas P e T
 
-Status: em execução · Autor: Eng. Murillo Magedanz (idealização) · Decisões derivadas: D15 e D16 em [`docs/DECISOES.md`](../DECISOES.md)
+Status: implementado · Autor: Eng. Murillo Magedanz (idealização) · Decisões derivadas: D15 e D16 em [`docs/DECISOES.md`](../DECISOES.md)
 
 ## 1. Objetivo
 

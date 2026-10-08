@@ -180,7 +180,7 @@ FileSource ──────┘    (PA 0,5 Hz +        (Pan–Tompkins       (s
 
 ## Próximos passos sugeridos
 
-1. Detecção de ondas P e T (o LUDB fornece a referência anotada) para substituir a estimativa atrial pelo RR.
+1. Ondas P/T já são estimadas (visual, opcional; `npm run report:waves`). Falta usá-las, após validação adicional, para substituir a estimativa atrial pelo RR no modelo 3D.
 2. A etapa 3 está concluída no escopo documentado; qualquer método de artefato que classifique ou interprete sinais deve ser proposto e validado separadamente.
 3. Rodar o benchmark nos 48 registros do MIT-BIH (`npm run fetch-data -- mitdb/<n>`) e publicar a tabela completa.
 4. Leitores EDF e CSV para dispositivos próprios.

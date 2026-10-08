@@ -49,3 +49,18 @@ export function detectAll(source, { notchHz = 60, nLeads = 12 } = {}) {
   }
   return { events, pipeline };
 }
+
+// Como detectAll, mas também devolve o sinal filtrado de cada derivação
+// (Float32Array por derivação; NaN onde a amostra é inválida), usado pela
+// delineação de ondas em lote.
+export function filterAll(source, { notchHz = 60, nLeads = 12 } = {}) {
+  const pipeline = new SignalPipeline(source.fs, nLeads, { notchHz, detectionLead: source.detectionLead ?? 1 });
+  const events = [];
+  const cols = Array.from({ length: nLeads }, () => []);
+  while (!source.done) {
+    const { filtered, mask, event } = pipeline.step(source.next());
+    if (event) events.push(event);
+    for (let l = 0; l < nLeads; l++) cols[l].push(mask && mask[l] ? NaN : filtered[l]);
+  }
+  return { events, filtered: cols.map((c) => Float32Array.from(c)), fs: source.fs };
+}
