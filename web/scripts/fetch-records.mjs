@@ -67,17 +67,39 @@ for (const r of manifest.records) {
     if (await exists(dest)) { skipped++; continue; }
     const url = `${db.filesBase}${r.remoteDir}${f}`;
     process.stdout.write(`baixando ${url} ... `);
-    try {
-      const res = await fetch(url);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      await writeFile(dest, Buffer.from(await res.arrayBuffer()));
-      console.log('ok');
-      downloaded++;
-    } catch (err) {
-      console.log(`falhou (${err.message})`);
-      failed++;
+    let lastError = null;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        await writeFile(dest, Buffer.from(await res.arrayBuffer()));
+        lastError = null;
+        break;
+      } catch (err) {
+        lastError = err;
+      }
     }
+    if (lastError) { console.log(`falhou (${lastError.message})`); failed++; } else { console.log('ok'); downloaded++; }
   }
 }
+
+// LUDB: título e rótulos vêm dos comentários do próprio cabeçalho, copiados como estão.
+let labelsChanged = false;
+for (const r of manifest.records) {
+  if (r.db !== 'ludb' || r.datasetLabels) continue;
+  const hea = path.join(root, 'data', 'records', r.db, r.files[0]);
+  if (!(await exists(hea))) continue;
+  const comments = (await readFile(hea, 'utf8')).split(/\r?\n/).filter((l) => l.startsWith('#'));
+  const pick = (key) => comments.find((l) => l.startsWith(`#<${key}>:`))?.split(':')[1].trim() ?? '';
+  const rhythm = comments.find((l) => l.startsWith('#Rhythm:'))?.slice(8).trim() ?? '';
+  const diagnoses = comments.filter((l) => l.startsWith('#') && !l.startsWith('#<') && !l.startsWith('#Rhythm:')).map((l) => l.slice(1).trim()).filter(Boolean);
+  r.title = `LUDB ${r.record} — ${rhythm.replace(/\.$/, '') || 'sem ritmo informado'} (12 derivações, anotações P/QRS/T)`;
+  r.datasetLabels = `Ritmo: ${rhythm || 'n/d'}${diagnoses.length ? ` Demais rótulos do banco: ${diagnoses.join(' ')}` : ''} Idade ${pick('age') || 'n/d'}, sexo ${pick('sex') || 'n/d'}.`;
+  r.notes = 'Anotações de limites e picos de P, QRS e T em cada derivação (um arquivo por derivação).';
+  r.bundled = true;
+  labelsChanged = true;
+}
+if (labelsChanged) await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+
 console.log(`\n${downloaded} arquivo(s) baixado(s), ${skipped} já existiam, ${failed} falha(s).`);
 if (failed) process.exit(1);
