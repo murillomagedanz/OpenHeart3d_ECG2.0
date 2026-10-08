@@ -33,6 +33,8 @@ As derivações são sinais relacionados, não 12 medições independentes. O si
 
 ## Roteiro técnico-científico
 
+A próxima direção acordada é **consolidar a base atual antes de novas intervenções no detector**, com diagnóstico técnico, observabilidade, caracterização dos filtros, robustez/eficiência mensuradas e dados reais governados. O [SDD 002](docs/specs/002-consolidacao-base-ecg-3d.md) organiza tarefas, dependências, requisitos e cinco subdocumentos, incluindo preparação multimodal para o 3D. É um programa documentado, ainda não executado; não altera as capacidades listadas abaixo nem autoriza ML ou inferências clínicas.
+
 | Etapa | Entrega verificável | Critério para avançar |
 | --- | --- | --- |
 | 1. Fundamentos e dados | Especificação de formatos, metadados, aquisição e governança; seleção de ECGs de pesquisa com licença e proveniência claras. | Um registro de teste permite reproduzir os sinais brutos e identificar unidades, derivações, timestamps e transformações aplicadas. |
