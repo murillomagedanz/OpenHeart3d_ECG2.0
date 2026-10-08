@@ -512,3 +512,39 @@ Plano congelado antes da execução: `docs/plans/2026-10-08-coverage-alignment-a
 **Critério congelado: NÃO atendido** (`not-met-alignment-alone-insufficient-stop`): ganho ≥10 atendido (13), replicação não (0 registros não-228 com ≥3) e burden marginal pior que 162,5. Esta ablação de alinhamento é insuficiente; investigação limitada encerrada, sem novas variantes nem busca de parâmetros e **sem promoção**. A causa das correspondências ainda ausentes permanece não resolvida; este resultado não demonstra que ausência ou imaturidade de molde dominem.
 
 **Verificação.** 46/46 testes direcionados (10 novos); `npm test` 245/245 (235 + 10) e benches exit 0; `node --check` nos quatro módulos; `git diff --check` limpo; `web/src` sem diff; só ganchos aditivos em `qrs-subthreshold-query.mjs` e `qrs-support-emission-context.mjs`. O coordenador publica os artefatos juntos no PR #13, sem merge.
+
+## 20. Síntese e decisão de encerramento desta etapa
+
+**Decisão em 2026-10-08:** encerrar a etapa exploratória das variantes e sondas das seções 10–19, incluindo memória morfológica, energia, contexto e alinhamento. Não promover nenhuma variante, não continuar a busca de constantes ou combinações neste corpus e não declarar o problema QRS resolvido. Este é um fechamento de pesquisa com resultados negativos e inconclusivos documentados, não uma aprovação de produto nem refutação geral de métodos adaptativos ou de templates.
+
+### 20.1. Pergunta, evidência e estado
+
+O objetivo continua sendo recuperar QRS de baixa energia sem aumentar indevidamente FP ou perder V verdadeiros. O mecanismo local no 228 está sustentado pelo replay de MLII: limiares aprendidos com complexos de maior energia impedem a abertura de muitos N; nas candidatas fracas, RR inflado e limpeza da reserva pelo V seguinte limitam o search-back. Isso não explica automaticamente todas as falhas dos 101 registros.
+
+| Estudo | Evidência decisiva | Estado desta etapa |
+|---|---|---|
+| Decaimento global | Tau 3 s: agregado 30.815 TP / 1.319 FP / 38 FN; regressão de VPP e falha do teto FP no 228 | Variante rejeitada |
+| Cap de aprendizado | Cap2 no 228: FN 352 → 8, FP 9 → 48; teto congelado 19 | Variante rejeitada, apesar do ganho de cobertura |
+| Triagem morfológica causal | Sinaliza 44 FP e três V reais do 210 | Não segura como veto universal |
+| Memória e consultas sem aprendizado | Original: 92/435 perdas pareáveis a propostas maduras, 14.949 propostas maduras não pareadas | Forma e recorrência insuficientes nesta configuração |
+| Energia por template | Contraste parcial, sobreposição e forte concentração de pares no 228 | Informação descritiva, não regra validada |
+| Suporte e última emissão | Direções discordantes fora do 228 e células conjuntas esparsas | Inconclusivo; sequência de covariáveis encerrada |
+| Alinhamento fixo ±20 ms | +13 pares hipotéticos e +9.285 propostas maduras não pareadas; replicação exigida não atingida | Ablação insuficiente; busca encerrada |
+
+As contagens de propostas não pareadas **não são FP clínicos**; os pares hipotéticos não são emissões adicionais nem ganhos de sensibilidade. As sondas deixam a produção em 30.418 TP / 582 FP / 435 FN nos 101 registros. Não calcular desempenho de uma combinação pela subtração offline de eventos: uma intervenção muda aprendizado, RR, reservas e decisões futuras.
+
+### 20.2. O que podemos e não podemos concluir
+
+**Podemos concluir:** nesta configuração testada, baixar a proteção de energia recupera batimentos, mas também admite erros; maturidade não identifica verdade QRS; V novos não podem ser vetados por falta de memória; energia/contexto/alinhamento não forneceram evidência suficiente para uma intervenção segura pelos critérios adotados. A instrumentação, os controles, os protocolos e os resultados são reproduzíveis e permanecem disponíveis para retomada.
+
+**Não podemos concluir:** que templates ou adaptação seletiva sejam inviáveis em geral; que toda proposta não pareada seja onda T/ruído; que ausência de correlação prove ausência de morfologia; que a falta de replicação seja refutação estatística; ou que exista generalização clínica. O mesmo corpus foi repetidamente inspecionado e é desenvolvimento/regressão, não validação independente. A causa das correspondências residuais ausentes permanece aberta.
+
+O fechamento é justificável porque as perguntas delimitadas foram executadas, os critérios de parada foram aplicados sem reajuste e nenhum resultado sustenta promoção. Repetir deslocamentos, correlações ou bins neste momento acrescentaria risco de seleção sobre o corpus, não evidência independente. **Não é necessário executar mais uma variante para concluir esta etapa.**
+
+### 20.3. Pendências fora deste fechamento e condição de reabertura
+
+Antes de outra etapa de melhoria, definir uma pergunta nova que não repita a busca encerrada, seu mecanismo esperado, um comparador, critérios de sucesso/parada e a separação de desenvolvimento versus registros reservados. Registrar a reserva antes de inspecionar os resultados; não consumir dados novos apenas para resgatar variantes já rejeitadas. Não há nesta entrega uma regra candidata aprovada a validar em novos registros.
+
+Qualquer futura promoção ainda exige os gates da seção 9 (228 FN ≤205 e FP ≤19, regressão por banco ≤0,005 absoluta e resultados por registro), preservação dos V críticos, replay causal da intervenção completa, lacunas, equivalência lote/streaming, latência/custo e avaliação independente. CPU/memória e integração produto não foram aferidos para as sondas; isso não impede o fechamento exploratório, mas impede alegações de prontidão.
+
+**Estado de entrega:** pesquisa desta etapa concluída; problema de recuperação QRS ainda aberto; detector original preservado; PR #13 reúne código de pesquisa e documentação, sem autorização de merge nesta decisão. Planos e JSON das seções 16–19 são o contexto persistente. Esta síntese não executa experimento novo nem modifica os resultados anteriores.
