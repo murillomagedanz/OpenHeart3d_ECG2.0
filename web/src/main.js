@@ -6,6 +6,7 @@ import { OnlineScorer, DEFAULT_TOLERANCE_S } from './ecg/scoring.js';
 import { loadRecord } from './io/wfdb.js';
 import { FileSource } from './io/fileSource.js';
 import { safeSpectrumMetadata } from './io/spectrumExport.js';
+import { WaveTracker } from './ecg/waves.js';
 import { EcgPlot } from './view/ecgPlot.js';
 import { SpectrumPlot } from './view/spectrumPlot.js';
 import { SpectrumExportControl } from './view/spectrumExportControl.js';
@@ -19,7 +20,7 @@ const $ = (id) => document.getElementById(id);
 const ui = {
   source: $('source'), record: $('record'), openFiles: $('open-files'),
   hr: $('hr'), hrv: $('hrv'), noise: $('noise'), mains: $('mains'), mainsHz: $('mains-hz'),
-  viewMode: $('view-mode'), filteredOption: $('opt-filtered'), speed: $('speed'), pause: $('pause'),
+  showWaves: $('show-waves'), viewMode: $('view-mode'), filteredOption: $('opt-filtered'), speed: $('speed'), pause: $('pause'),
   hrDetected: $('hr-detected'), rrMean: $('rr-mean'), lastQrs: $('last-qrs'), phase: $('phase'),
   recordStatus: $('record-status'), refStatus: $('ref-status'),
   banner: $('data-banner'), synthControls: $('ctl-synth'), recordControls: [$('ctl-record'), $('ctl-open')],
@@ -64,6 +65,7 @@ function buildPipeline(fs) {
   pendingFileRestart = false;
   state.pipeline = new SignalPipeline(fs, LEAD_NAMES.length, { notchHz: state.mainsHz, detectionLead: state.detectionLead });
   plot.reset(fs);
+  state.waves = new WaveTracker(fs);
   spectrumWindow.reset(fs);
   latestSpectrum = null;
   latestTimeFrequency = null;
@@ -287,6 +289,7 @@ function renderRecordInfo(record, src, meta) {
 // --- Controles ----------------------------------------------------------------------
 
 for (const el of [ui.hr, ui.hrv, ui.noise, ui.mains]) el.addEventListener('input', syncParams);
+ui.showWaves.addEventListener('change', () => { plot.showWaves = ui.showWaves.checked; });
 ui.viewMode.addEventListener('change', () => {
   state.viewMode = ui.viewMode.value;
   plot.setMode(state.viewMode); // o traçado guarda bruto e filtrado: redesenha o histórico no novo modo
@@ -404,6 +407,7 @@ function step() {
   state.signalIndex = s.index ?? Math.round(s.t * src.fs);
 
   plot.push(s.leads, filtered, mask);
+  state.waves.push(filtered[state.detectionLead], !(mask && mask[state.detectionLead]));
   spectrumWindow.push(
     s.leads[state.detectionLead],
     filtered[state.detectionLead],
@@ -423,7 +427,11 @@ function step() {
     // para a marca no traçado, o painel e a previsão do próximo ciclo.
     heart.onQrs(s.t, state.pipeline.detector.rrMean, ev.t);
     state.lastQrsT = ev.t;
-    plot.markQrs(Math.round((s.t - ev.t) * src.fs));
+    const qrsAgo = Math.round((s.t - ev.t) * src.fs);
+    plot.markQrs(qrsAgo);
+    const wv = state.waves.onQrs(qrsAgo);
+    if (wv?.p) plot.markWave('P', wv.p.peak);
+    if (wv?.prevT) plot.markWave('T', wv.prevT.peak);
     if (state.scorer && ev.t <= state.scoredUntil) state.scorer.addDet(ev.t);
   }
   if (state.scorer) {

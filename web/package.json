@@ -1,9 +1,9 @@
-{
+﻿{
   "name": "openheart3d-ecg-web",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Protótipo web OpenHeart3D ECG 2.0: 12 derivações + coração 3D sincronizado",
+  "description": "ProtÃ³tipo web OpenHeart3D ECG 2.0: 12 derivaÃ§Ãµes + coraÃ§Ã£o 3D sincronizado",
   "scripts": {
     "start": "python -m http.server 8000",
     "test": "node --test tests/*.test.mjs && node tests/detector-bench.mjs && node tests/detector-real.mjs",
@@ -11,6 +11,7 @@
     "bench:real": "node tests/detector-real.mjs",
     "fetch-data": "node scripts/fetch-records.mjs",
     "report": "node tests/validation-report.mjs",
+    "report:waves": "node tests/wave-report.mjs",
     "pack-vault": "node tools/vault/pack.mjs",
     "unpack-vault": "node tools/vault/unpack.mjs",
     "build-rt": "node tools/vault/build-rt.mjs"

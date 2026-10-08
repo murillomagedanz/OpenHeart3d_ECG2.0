@@ -5,6 +5,7 @@ import vm from 'node:vm';
 import { LEAD_NAMES } from '../src/ecg/leads.js';
 import { SyntheticSource } from '../src/ecg/synth.js';
 import { SignalPipeline } from '../src/ecg/pipeline.js';
+import { WaveTracker } from '../src/ecg/waves.js';
 import { SpectrumExportControl } from '../src/view/spectrumExportControl.js';
 
 const code = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8')
@@ -36,7 +37,7 @@ function app() {
     setBottomInset() {}
     push() {}
     markRef() {}
-    markQrs() {}
+    markQrs() {} markWave() {}
     draw() {}
     update() {}
     onQrs() {}
@@ -56,7 +57,7 @@ function app() {
     draw(...args) { this.lastDraw = args; }
   }
   const context = vm.createContext({
-    document, Node: class {}, LEAD_NAMES, SyntheticSource, SignalPipeline,
+    document, Node: class {}, LEAD_NAMES, SyntheticSource, SignalPipeline, WaveTracker,
     SpectrumWindow, SpectrumExportControl, safeSpectrumMetadata: () => ({}),
     summarizeFilterBands: () => ({ low: {}, mains: {} }),
     EcgPlot: View, SpectrumPlot, Heart3D: View, performance: { now: () => 0 },

@@ -8,6 +8,7 @@ import { SpectrumExportControl } from '../src/view/spectrumExportControl.js';
 import { LEAD_NAMES } from '../src/ecg/leads.js';
 import { SyntheticSource } from '../src/ecg/synth.js';
 import { SignalPipeline } from '../src/ecg/pipeline.js';
+import { WaveTracker } from '../src/ecg/waves.js';
 import { FileSource } from '../src/io/fileSource.js';
 
 const DATE = new Date('2026-10-07T20:00:00.000Z');
@@ -161,7 +162,7 @@ function app() {
   };
   class View {
     reset() {} setLeads() {} setMode() {} draw() {} update() {} onQrs() {} setContext() {}
-    push() {} markQrs() {}
+    push() {} markQrs() {} markWave() {}
   }
   class ExportControl extends SpectrumExportControl {
     constructor(button, status) {
@@ -173,7 +174,7 @@ function app() {
     }
   }
   const context = vm.createContext({
-    document, Node: class {}, LEAD_NAMES, SyntheticSource, SignalPipeline, FileSource,
+    document, Node: class {}, LEAD_NAMES, SyntheticSource, SignalPipeline, WaveTracker, FileSource,
     SpectrumWindow, summarizeFilterBands, safeSpectrumMetadata, SpectrumExportControl: ExportControl,
     EcgPlot: View, SpectrumPlot: View, Heart3D: View, performance: { now: () => 0 },
     requestAnimationFrame() {}, console,

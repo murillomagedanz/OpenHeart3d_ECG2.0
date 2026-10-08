@@ -36,8 +36,11 @@ export class EcgPlot {
     this.filtRhythm = new Float32Array(this.rhythmLen);
     this.markers = new Uint8Array(this.rhythmLen);
     this.refMarkers = new Uint8Array(this.rhythmLen);
+    this.waveMarkers = new Uint8Array(this.rhythmLen); // 1 = pico de P, 2 = pico de T
     this.n = 0;
   }
+
+  showWaves = false;
 
   setMode(mode) {
     if (!VIEW_MODES.includes(mode)) throw new RangeError(`Modo de exibição desconhecido: ${mode}`);
@@ -79,6 +82,7 @@ export class EcgPlot {
     this.filtRhythm[ri] = gapR ? NaN : filtered[this.rhythmIdx];
     this.markers[ri] = 0;
     this.refMarkers[ri] = 0;
+    this.waveMarkers[ri] = 0;
     this.n++;
   }
 
@@ -98,6 +102,13 @@ export class EcgPlot {
   markRef(samplesAgo) {
     const ri = (this.n - 1 - samplesAgo + this.rhythmLen * 2) % this.rhythmLen;
     this.refMarkers[ri] = 1;
+  }
+
+  // Ondas P/T estimadas por algoritmo (kind 'P' | 'T'), samplesAgo = picos.
+  markWave(kind, samplesAgo) {
+    if (samplesAgo < 0 || samplesAgo >= this.rhythmLen) return;
+    const ri = (this.n - 1 - samplesAgo + this.rhythmLen * 2) % this.rhythmLen;
+    this.waveMarkers[ri] = kind === 'P' ? 1 : 2;
   }
 
   _leadLabel(name) {
@@ -121,7 +132,7 @@ export class EcgPlot {
     ctx.stroke();
   }
 
-  _trace(rawBuf, filtBuf, len, x, y, w, h, pxPerMm, markers, refMarkers) {
+  _trace(rawBuf, filtBuf, len, x, y, w, h, pxPerMm, markers, refMarkers, waveMarkers = null) {
     const ctx = this.ctx;
     const mid = y + h / 2;
     const pxPerMv = pxPerMm * MM_PER_MV;
@@ -147,6 +158,19 @@ export class EcgPlot {
       for (let k = 0; k < count; k++) {
         if (markers[k]) ctx.fillRect(x + (k / len) * w - 1, y + 2, 2, 6);
       }
+    }
+    if (waveMarkers && this.showWaves) {
+      ctx.font = '10px sans-serif';
+      ctx.textAlign = 'center';
+      for (let k = 0; k < count; k++) {
+        const kind = waveMarkers[k];
+        if (!kind || !Number.isFinite(this._sample(rawBuf, filtBuf, k))) continue;
+        const px = x + (k / len) * w;
+        const py = mid - this._sample(rawBuf, filtBuf, k) * pxPerMv;
+        ctx.fillStyle = kind === 1 ? '#f78fb3' : '#c4a1ff';
+        ctx.fillText(kind === 1 ? 'P' : 'T', px, kind === 1 || py < mid ? py - 5 : py + 12);
+      }
+      ctx.textAlign = 'start';
     }
     if (refMarkers) {
       ctx.fillStyle = '#4cc9f0';
@@ -197,7 +221,7 @@ export class EcgPlot {
     const rw = this.w - pad * 2;
     const rPxPerMm = rw / (RHYTHM_SECONDS * MM_PER_SEC);
     this._grid(pad, ry, rw, rhythmH, rPxPerMm);
-    this._trace(this.rawRhythm, this.filtRhythm, this.rhythmLen, pad, ry, rw, rhythmH, rPxPerMm, this.markers, this.hasReference ? this.refMarkers : null);
+    this._trace(this.rawRhythm, this.filtRhythm, this.rhythmLen, pad, ry, rw, rhythmH, rPxPerMm, this.markers, this.hasReference ? this.refMarkers : null, this.waveMarkers);
     ctx.fillStyle = '#e6edf3';
     const legend = this.hasReference
       ? 'marcas amarelas (acima) = QRS detectado · azuis (abaixo) = referência anotada no banco'
