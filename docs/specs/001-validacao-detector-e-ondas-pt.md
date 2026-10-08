@@ -376,3 +376,39 @@ Verificação final: **20/20 testes direcionados**, **219/219 em `npm test`**, s
 **Próxima hipótese justificável, ainda não executada:** uma ablação descritiva da **compatibilidade de energia por template**, calculada causalmente só de emissões anteriores, pode investigar se as 9.918 propostas maduras sem referência próxima e as 92 perdas pareadas ocupam faixas de energia diferentes dentro da mesma morfologia. Pré-declarar as medições/denominadores antes de executar; manter consultas sem aprendizado, correlação/alinhamento atuais, original/cap2 separados e nenhum veto aos V novos. Não escolher limiar de energia nem alterar detector a partir desta entrega.
 
 Os 101 registros, incluindo LUDB ímpar e MIT-BIH já inspecionados, são **teste/desenvolvimento e regressão, não validação independente**. A correspondência temporal não demonstra identidade QRS, pureza de template ou mecanismo T/ruído. O alinhamento fixo trailing-MWI não é o mesmo alinhamento do pico emitido e não foi otimizado; máximos múltiplos geram propostas redundantes; correlacionar forma normalizada perde informação de escala. CPU, custo de memória global e integração streaming/produto ainda pendentes: o replay de pesquisa mantém arrays completos e compara múltiplas execuções. Critérios da seção 9 e registros inéditos permanecem necessários antes de qualquer promoção.
+
+## 17. Compatibilidade causal de energia dentro do template (descritiva)
+
+Plano congelado **antes** da execução: `docs/plans/2026-10-08-template-energy-shadow.md`. Relatório: `docs/plans/2026-10-08-template-energy-shadow-results.json`. Reprodução (de `web`): `node tests\qrs-template-energy.mjs --all --output ..\docs\plans\2026-10-08-template-energy-shadow-results.json`.
+
+### 17.1. Medida
+
+Energia de um vetor = variância populacional (quadrado médio do vetor centrado) da mesma janela bandpass ±80 ms que é normalizada para a forma; é invariante a polaridade e deslocamento, e escala por k² quando a amplitude escala por k. O template guarda EMA de energia (peso 0,125 igual ao da forma), mínimo e máximo das energias emitidas, criados e descartados com o template (lacuna, expiração, evicção). A consulta lê o estado **anterior** sem alterá-lo; a emissão lê o estado prévio e só depois atualiza. A razão consulta/prior só existe com ambas finitas e positivas; `L = log2(razão)`. O MWI da consulta nunca é comparado ao `maxFeat` emitido. Nenhuma energia entra em casamento, maturidade, expiração, evicção, status, eventos, veto ou limiar. População: apenas consultas `mature-match`, pareamento um-a-um e estratos idênticos ao da seção 16 (`classifyMature` foi extraído, não reimplementado). Quantis min/p10/p25/mediana/p75/p90/max, histograma em oitavas, AUC (empates 1/2), sobreposição p10–p90, AUC por template (peso n_par·n_outro, suporte mínimo 3 por grupo só para listas) e posição da energia frente ao intervalo prior min/max.
+
+### 17.2. Verificação
+
+Projeção do relatório salvo da seção 16 (SHA256 `83a373d0…7033`): **101/101 registros e protocolos idênticos** (contadores por registro, 101 controles congelados e cap2 inalterados); eventos ligado/desligado idênticos em 101 controle + 101 cap2. Duas execuções `--all` geraram JSON byte-a-byte idêntico (SHA256 `E42E9516BD924C7952B1208441438D9D70CB6C93F7AEBE6981D8F258F004F4AC`, 529.233 bytes). Testes: 8 novos (escala analítica k², polaridade/offset, prior pré-atualização, imutabilidade profunda, lacuna/expiração/evicção, guardas finitas/planas/não disponíveis, AUC/quantis/Simpson-like, equivalência de `classifyMature`, eventos 228 on/off e causalidade prefixo/futuro NaN); **227/227 em `npm test`** (219 + 8) com benches exit 0; `node --check` e `git diff --check` passam; `web/src` sem diff.
+
+### 17.3. Resultados (L = log2 energia consulta/prior; negativo = consulta menos energética que o prior do template)
+
+| Banco | Grupo | n | mediana | p10–p90 | abaixo/dentro/acima do intervalo prior |
+|---|---|---|---|---|---|
+| original | pareadas a perdas | 92 | −3,15 | −5,06…0,12 | 62/28/2 |
+| original | não pareadas | 14.949 | −6,39 | −9,08…−2,65 | — |
+| original | sem referência próxima | 9.918 | −7,12 | −9,48…−3,51 | 9866/47/5 |
+| original | já detectada | 4.924 | −4,88 | −7,69…−0,09 | 4062/799/63 |
+| original | vizinhança de perda duplicada | 107 | −2,39 | −5,11…0,05 | 63/44/0 |
+| cap2 | pareadas | 23 | −3,30 | −5,66…−1,62 | 23/0/0 |
+| cap2 | não pareadas | 15.023 | −6,38 | −9,10…−2,60 | — |
+
+Nenhuma energia ficou indisponível entre as propostas maduras (razão presente em 15.041 originais e 15.046 cap2).
+
+AUC P(L_pareada > L_outro), original (cap2): vs. não pareadas **0,81** (0,77) agregada, **0,90** (0,85) estratificada por template (19 templates com ambos; 193 só de não pareadas; 0 só de pareadas; 15 de 19 com AUC>0,5); vs. sem referência **0,87** (0,84) / 0,97 (0,93); vs. já detectada **0,70** (0,63) / 0,66 (0,69), templates 9 acima e 7 abaixo (cap2 5/7); vs. vizinhança de perda duplicada **0,48** (0,53) / 0,55 (0,45) — sem separação. Sobreposição: 34% das não pareadas caem em p10–p90 das pareadas (e 53% das pareadas no das não pareadas). Em nível de registro: 9 registros com pareadas, só 4 (3 em cap2) com ≥3 em ambos os grupos, todos com AUC>0,5.
+
+Registros-chave (AUC agregada pareada vs. não pareada; estratificada): 228 original 73 pareadas/1.363 não pareadas, 0,88; 0,93 (7 templates); cap2 5/1.315, 0,85; 0,86. 210: 6/1.133, 0,97 (ambos bancos). 207: 3/529, 0,87 agregada mas 0,44 dentro de template. 108: 1/2.444, 0,49 (n=1, sem inferência). Os 72 N pareados de 228 são bimodais (mediana L −0,99; p25 −4,6). Nenhum registro ou intervalo foi excluído.
+
+### 17.4. Interpretação e limites
+
+As perdas pareadas ocupam, em geral, energia relativa **maior** que as propostas sem referência (diferença de ~3,5 oitavas na mediana, ou ~3,4× em amplitude), e o contraste persiste dentro de templates, portanto não é só mistura entre templates. Porém: (i) a diferença é principalmente contra o estrato sem referência, que já é "ruído abaixo do prior"; contra já detectadas e duplicadas a separação é fraca ou nula, e as próprias propostas já detectadas (batimentos reais) são de baixa energia, de modo que energia relativa não distingue "batimento perdido" de "batimento já detectado"; (ii) a sobreposição é grande (34%–53% nos intervalos p10–p90) e a maioria das pareadas (62/92) fica **abaixo** do mínimo prior emitido; (iii) 92 pareadas em 9 registros, dominadas por 228 (73), 4 registros com suporte para AUC por template; (iv) o prior é estado variável no tempo (inclui candidatas emitidas ruidosas), idade/suporte distintos entre grupos; (v) alinhamento trailing-MWI das consultas ≠ alinhamento da emissão. Nenhum limiar de energia foi escolhido, não há afirmação de separabilidade, de sensibilidade/VPP, nem de resolução do cold start; não se deve interpretar como VP/FP clínico.
+
+**Conclusão:** evidência descritiva positiva e parcial, mas insuficiente para qualquer limiar ou intervenção. Uma próxima hipótese local limitada seria avaliar (sem tocar o detector) se combinar energia relativa com a maturidade/suporte e com a vizinhança de detecções emitidas (já detectada) reduz a sobreposição, pré-declarada e com validação em registros inéditos. Conjunto de 101 registros = desenvolvimento/regressão, não validação independente; CPU/memória do estado extra (3 floats por template) não medidos; validação de produção e registros inéditos pendentes.

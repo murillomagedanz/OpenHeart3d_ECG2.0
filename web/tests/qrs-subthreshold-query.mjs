@@ -78,7 +78,20 @@ const symbols = (refs) => {
   return counts;
 };
 
-export function summarizeQueries(refs, missed, queries) {
+const near = (rs, t) => rs.some((r) => Math.abs(r.t - t) <= TOLERANCE_S);
+
+// One-to-one pairing of mature proposals to baseline misses, plus the unmatched strata.
+export function classifyMature(refs, missed, queries) {
+  const mature = [...queries].sort((a, b) => a.t - b.t).filter((q) => q.query.status === 'mature-match');
+  return labelEvents(missed, mature).map(({ event, reference }) => ({
+    row: event, reference,
+    group: reference ? 'paired'
+      : near(missed, event.t) ? 'duplicateMissNeighborhood'
+        : near(refs, event.t) ? 'alreadyDetectedNeighborhood' : 'noReferenceNeighborhood',
+  }));
+}
+
+export function summarizeQueries(refs, missed, queries, classified = classifyMature(refs, missed, queries)) {
   const covered = new Set();
   const byStatus = Object.fromEntries(STATUSES.map((s) => [s, new Set()]));
   const nearbySymbols = {};
@@ -104,14 +117,10 @@ export function summarizeQueries(refs, missed, queries) {
     if (nearby) rawNearby++;
     if (missedNearby) rawMissedNearby++;
   }
-  const mature = sorted.filter((q) => q.query.status === 'mature-match');
-  const pairing = labelEvents(missed, mature);
-  const paired = pairing.filter((p) => p.reference).map((p) => p.reference);
-  const unmatched = pairing.filter((p) => !p.reference);
-  const near = (rs, t) => rs.some((r) => Math.abs(r.t - t) <= TOLERANCE_S);
-  const duplicateMissNeighborhood = unmatched.filter((p) => near(missed, p.event.t)).length;
-  const alreadyDetectedNeighborhood = unmatched.filter((p) =>
-    !near(missed, p.event.t) && near(refs, p.event.t)).length;
+  const paired = classified.filter((p) => p.reference).map((p) => p.reference);
+  const unmatched = classified.filter((p) => !p.reference);
+  const duplicateMissNeighborhood = unmatched.filter((p) => p.group === 'duplicateMissNeighborhood').length;
+  const alreadyDetectedNeighborhood = unmatched.filter((p) => p.group === 'alreadyDetectedNeighborhood').length;
   return {
     queries: queries.length,
     statuses: Object.fromEntries(STATUSES.map((s) => [s, queries.filter((q) => q.query.status === s).length])),
@@ -134,7 +143,7 @@ const score = (refs, events) => {
   return { tp: result.tp, fp: result.fp, fn: result.fn };
 };
 
-export async function investigateQueries(entry, manifest, expected) {
+export async function investigateQueries(entry, manifest, expected, { onBank = null } = {}) {
   const { rec } = await readLocalRecord(entry);
   const refs = rec.annotations.filter((a) => BEAT_SYMBOLS.has(a.symbol))
     .map((a) => ({ t: a.sample / rec.header.fs, symbol: a.symbol })).filter((r) => r.t >= WARMUP_S);
@@ -157,7 +166,9 @@ export async function investigateQueries(entry, manifest, expected) {
     if (hits.size !== emitted.tp) throw new Error(`Baseline labels mismatch: ${entry.id} ${name}`);
     const missed = refs.filter((r) => !hits.has(r));
     const queries = monitor.rows.filter((q) => q.t >= WARMUP_S && q.t <= until);
-    banks[name] = { emitted, ...summarizeQueries(refs, missed, queries),
+    const classified = classifyMature(refs, missed, queries);
+    onBank?.({ bank: name, id: entry.id, classified });
+    banks[name] = { emitted, ...summarizeQueries(refs, missed, queries, classified),
       lifecycle: { enumeratedFullRecord: monitor.enumerated, queriedFullRecord: monitor.rows.length,
         invalidatedPending: monitor.invalidated, pendingAtEof: monitor.pending.length },
       emissionBank: on.shadowStats };
