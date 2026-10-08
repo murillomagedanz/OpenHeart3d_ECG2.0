@@ -1,6 +1,6 @@
 # SDD 002 — Consolidação da base ECG e preparação multimodal
 
-**Data:** 2026-10-08. **Estado:** direção acordada; pacote documental entregue; diagnóstico técnico e implementação ainda não executados.
+**Data:** 2026-10-08. **Estado:** pacote documental, B01 e B02 entregues; caracterização, medição de custo e implementação ainda não executadas.
 
 ## 1. Objetivo e decisão
 
@@ -70,3 +70,11 @@ Aceite da base consolidada não é um único percentual de detecção: requer ra
 Fontes internas: [visão do projeto](../../README.md), [decisões D1–D17](../DECISOES.md), [catálogo atual](../../web/data/README.md) e [pesquisa encerrada](001-validacao-detector-e-ondas-pt.md). A bibliografia do SDD 001 apoia o estudo QRS; não é apresentada como validação deste programa ou de pareamento imagem/ECG.
 
 Cada futura ficha externa deve distinguir metadados, resumo e leitura integral, registrar URL/versão/data de consulta, termos de uso e o que sustenta ou não. Nesta entrega não foi realizada nova busca bibliográfica nem confirmado qualquer conjunto multimodal específico.
+
+## 8. Entregas B01/B02 e próximo gate
+
+**B01 concluída no escopo do diagnóstico:** [mapa e contratos auditados](../base/06-diagnostico-arquitetura.md), com rastreamento por código, relógios e matriz de lacunas. Reprodução local de LUDB 8 pelo pipeline e de fonte sintética; 158 testes direcionados aprovados. Consumidores de interface/3D foram rastreados no código, não validados manualmente em navegador/WebGL. Robustez integral e eficiência ainda não foram aferidas; a entrega não certifica consolidação completa.
+
+**B02 concluída no escopo do inventário:** [reconciliação](../base/07-inventario-dados.md) e [snapshot por registro](../base/07-inventario-dados.json). São 106 registros no manifesto e completos localmente: 104 empacotados/rastreados e dois opcionais locais ignorados pelo Git (MIT-BIH 105/203). O relatório QRS congelado continua com 101 registros; a reprodução incluindo os dois opcionais tem 103. Os três restantes do inventário são PTB-XL, sem referência de tempos de batimento para esse escore. Conferiram 1.112 checksums WFDB de sinal; isso verifica consistência de decodificação, não verdade clínica ou cadeia criptográfica de proveniência. Nenhuma reserva independente foi declarada.
+
+Próxima entrega: detalhar e congelar protocolos de **B03/B04**, usando as lacunas do diagnóstico para escolher ensaios e critérios antes das medições. Separar caracterização dos filtros de validação operacional da interface e de benchmark de custo. Não implementar correções B05 antes de reunir B02, B03 e B04 conforme as dependências. Nenhum filtro, limiar, detector ou comando do 3D foi alterado nesta auditoria.

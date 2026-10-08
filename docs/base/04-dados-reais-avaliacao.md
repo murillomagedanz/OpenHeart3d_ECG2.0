@@ -1,6 +1,6 @@
 # 04 — Dados reais, proveniência e avaliação reservada
 
-**Vínculo:** [SDD 002](../specs/002-consolidacao-base-ecg-3d.md), B02 e futuras ampliações. **Estado:** contrato proposto; nenhum novo download ou split executado.
+**Vínculo:** [SDD 002](../specs/002-consolidacao-base-ecg-3d.md), B02 e futuras ampliações. **Estado:** contrato e reconciliação B02 concluídos; nenhum novo download ou split de avaliação executado. Ver [07 — Inventário de dados](07-inventario-dados.md).
 
 ## Objetivo
 
@@ -39,3 +39,7 @@ LUDB ímpar conserva a função histórica no protocolo P/T, mas registros já i
 ## Entrega e aceite
 
 Inventário reconciliado e ficha por base, lacunas, cobertura por paciente/ritmo/equipamento quando disponível e proposta de reserva sem acesso prematuro. Ampliação posterior requer pergunta, referências adequadas, termos verificados, orçamento de armazenamento e protocolo; base sem anotações úteis ainda pode servir à interface, não ao escore correspondente.
+
+## Estado B02 — concluído
+
+O inventário, os totais reconciliados, as lacunas de proveniência e a proposta de reserva estão em [07 — Inventário de dados](07-inventario-dados.md), com o snapshot determinístico [07-inventario-dados.json](07-inventario-dados.json). A seleção QRS versionada permanece congelada em 101 registros; os arquivos locais opcionais e sua avaliação separada não foram incorporados a esse baseline. Não foi declarada uma reserva independente.

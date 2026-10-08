@@ -1,6 +1,6 @@
 # 01 — Arquitetura e observabilidade
 
-**Vínculo:** [SDD 002](../specs/002-consolidacao-base-ecg-3d.md), B01. **Estado:** protocolo proposto; auditoria completa pendente.
+**Vínculo:** [SDD 002](../specs/002-consolidacao-base-ecg-3d.md), B01. **Estado:** B01 concluída em 2026-10-08; diagnóstico abaixo.
 
 ## Objetivo
 
@@ -42,3 +42,9 @@ Qualquer exportação futura deve respeitar D14: metadados por allowlist, finali
 ## Entrega e aceite
 
 Mapa verificado, tabela de contratos com referências a código/testes e matriz de lacunas classificadas por impacto. Cada lacuna deverá ser demonstrada por cenário reproduzível ou marcada como não aferida. Uma análise deve indicar exatamente quais amostras/configurações usou. Nenhuma alteração de limiar/filtro faz parte de B01.
+
+## Atualização B01 — 2026-10-08
+
+**Estado:** concluída para o escopo de arquitetura e observabilidade, sem alteração de produção. O diagnóstico, as evidências por símbolo/linha, a reprodução e a matriz R01–R08 estão em [06 — Diagnóstico de arquitetura](06-diagnostico-arquitetura.md). Foram exercitados localmente LUDB 8 e uma fonte sintética determinística pelo `SignalPipeline`; os testes Node focados passaram. A interface gráfica não foi aberta/manualmente exercitada. Integridade de escala/checksum, observabilidade de eventos/transformações e custo ainda têm lacunas; não se declara a base consolidada.
+
+**Limites e continuidade:** B02 (inventário) permanece independente e não foi auditada aqui. B03 deve caracterizar os filtros; B04 deve medir custo e robustez; achados que exijam mudanças de comportamento/instrumentação aguardam B05. Nenhuma conclusão deste diagnóstico modifica algoritmo, parâmetros ou gates de avaliação.
