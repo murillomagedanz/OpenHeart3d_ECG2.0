@@ -78,3 +78,33 @@ Nos N perdidos, o máximo MWI é inferior ao limiar cheio (razão mediana 0,343 
 5. Exigir testes sintéticos de alternância de energia, ruído e T proeminente, equivalência streaming/lote, lacunas, latência e custo. Os critérios do piloto não substituem validação clínica.
 6. Reservar registros novos, não inspecionados, antes de escolher uma alternativa; congelar parâmetros antes dessa avaliação final. Não promover o piloto apenas por melhorar o 228.
 7. Investigar P/T em etapa separada com R detectado versus anotado, sem alimentar o 3D. Só abrir a entrega de alteração do detector após evidência comparativa e CI verde; merge requer confirmação dos checks.
+
+## 10. Experimento isolado: decaimento do nível de sinal
+
+**Hipótese:** decair exponencialmente `signalLevel` em direção a `noiseLevel` entre candidatas reduz a disparidade de energia V/N na bigeminia do registro 228. A sonda fica em `tests/qrs-trace.mjs`, fora de `detector.js`; tau zero preserva o detector atual. Assim, nenhum comportamento de produto ou relatório é alterado.
+
+Executar em `web/` para repetir em um registro ou em todos os registros versionados:
+
+```powershell
+node tests\qrs-decay-experiment.mjs 0.35 mitdb/228
+node tests\qrs-decay-experiment.mjs 1 mitdb/228
+node tests\qrs-decay-experiment.mjs 3
+node --test tests\qrs-trace.test.mjs
+```
+
+As constantes foram comparadas mantendo todo o restante fixo:
+
+| tau (s) | 228 TP | FP | FN | Sens. | VPP |
+|---:|---:|---:|---:|---:|---:|
+| Referência (sem decaimento) | 1.700 | 9 | 352 | 0,8285 | 0,9947 |
+| 0,35 | 2.052 | 293 | 0 | 1,0000 | 0,8751 |
+| 0,50 | 2.052 | 241 | 0 | 1,0000 | 0,8949 |
+| 0,75 | 2.052 | 162 | 0 | 1,0000 | 0,9268 |
+| 1,00 | 2.052 | 131 | 0 | 1,0000 | 0,9400 |
+| 1,50 | 2.051 | 104 | 1 | 0,9995 | 0,9517 |
+| 2,00 | 2.051 | 73 | 1 | 0,9995 | 0,9656 |
+| 3,00 | 2.047 | 52 | 5 | 0,9976 | 0,9752 |
+
+**Resultado:** rejeitar o decaimento simples como alteração do detector. Mesmo o tau 3 s, que mais se aproxima do VPP de referência entre os valores ensaiados, falha o critério piloto já fixado para 228 (FP ≤19). Aplicado aos 101 registros, muda o agregado de 30.418 TP / 582 FP / 435 FN (sens. 0,9859; VPP 0,9812) para 30.815 / 1.319 / 38 (sens. 0,9988; VPP 0,9590). Falha também o limite de regressão de 0,005 absoluto no VPP. Por banco, LUDB muda de 20 para 31 FP (VPP 0,9752 → 0,9623); MIT-BIH, de 562 para 1.288 FP (VPP 0,9814 → 0,9589). O 207 vai de 366 para 482 FP no tau 3 s, e o 108 de 164 para 569. Não adotar, promover nem ocultar essas detecções extras; os intervalos difíceis permanecem no resultado bruto.
+
+Esta comparação rejeita apenas o decaimento exponencial global sem distinção de morfologia/estado, não a possibilidade de adaptação seletiva. A próxima hipótese deve separar candidatas de baixa energia plausíveis de ruído/flutter sem baixar o limiar indiscriminadamente; defini-la e testá-la contra os critérios congelados antes de mexer no caminho de produção.

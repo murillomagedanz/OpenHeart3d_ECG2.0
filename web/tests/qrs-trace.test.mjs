@@ -47,7 +47,16 @@ test('second 228 episode reproduces subthreshold N and weak candidates', async (
   assert.ok(missed.every((b) => b.max.sinceLast > 0.22));
 });
 
+test('experimental decay is opt-in and reproduces the 228 sensitivity/false-positive tradeoff', async () => {
+  const experimental = await traceRecord('mitdb/228', 0, 1805, {
+    signalDecayTauS: 0.35, captureSamples: false,
+  });
+  assert.equal(experimental.signal, 'MLII');
+  assert.deepEqual(experimental.score, { tp: 2052, fp: 293, fn: 0 });
+});
+
 test('trace rejects unknown records and invalid intervals', async () => {
   await assert.rejects(traceRecord('unknown', 1, 2), /Unknown record/);
   await assert.rejects(traceRecord('mitdb/228', 5, 4), RangeError);
+  await assert.rejects(traceRecord('mitdb/228', 1, 2, { signalDecayTauS: -1 }), RangeError);
 });
