@@ -60,3 +60,7 @@ npm test
 Salvar relatório científico determinístico com schema/versão, configuração, método, critérios, resultados por caso e indisponibilidades; sem tempo de parede. Relatório narrativo deve explicar falhas, não só totais. Testar estimador com ganho/fase conhecidos e validar saída contra fórmulas, além de repetir a geração.
 
 B03 conclui quando todos os casos têm resultado ou bloqueio explícito, controles/eventos preservados e divergências documentadas. Uma falha pode concluir a caracterização e gerar trabalho B05, mas não equivale a aprovação do comportamento. Não reajustar grade/tolerâncias, otimizar filtros ou abrir nova hipótese QRS nesta execução.
+
+## Atualização de execução v1 — 2026-10-08
+
+**B03 Node concluída:** [relatório](10-resultados-caracterizacao-filtros.md) e [JSON determinístico por caso](10-resultados-caracterizacao-filtros.json), medidos em `0884fd1` sem alteração de produção. Primeira execução e artefato final: 319 casos, 319 pass, 0 fail, 0 blocked; eventos e controles reais preservados. Grade, janelas, durações e tolerâncias acima continuam congeladas e inalteradas. Inicialização é zero-state, não prime automático; notch0 possui descrição enganosa embora processamento correto. Esses achados geram encaminhamento B05, não ajuste do protocolo. Estado pendente do cabeçalho refere-se ao congelamento anterior, superado por esta atualização.

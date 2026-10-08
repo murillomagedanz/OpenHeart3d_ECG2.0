@@ -1,6 +1,6 @@
 # 03 — Robustez, sincronização e eficiência
 
-**Vínculo:** [SDD 002](../specs/002-consolidacao-base-ecg-3d.md), B04–B06. **Estado:** matriz inicial; custos e budgets ainda não aferidos.
+**Vínculo:** [SDD 002](../specs/002-consolidacao-base-ecg-3d.md), B04–B06. **Estado:** matriz inicial; baseline Node/VM B04 executado ([resultados](11-resultados-robustez-custo.md)); navegador/WebGL e budgets de produto pendentes.
 
 O [protocolo B04 v1](09-protocolo-robustez-custo.md) fixa cenários funcionais e método de benchmark antes da execução. Budgets de produto ainda pendentes; estabelecer baseline não equivale a aprovar eficiência.
 

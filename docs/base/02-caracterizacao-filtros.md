@@ -32,3 +32,7 @@ Mudanças em amplitudes/bordas P/QRS/T devem ser descritas como medidas, não co
 ## Entrega e aceite
 
 Relatório determinístico para medições que permitem determinismo, cenários sintéticos e reais, resposta por estágio e composição, falhas e transientes. Tolerâncias devem estar definidas antes de julgar resultados. Alterar coeficientes ou métodos exige tarefa posterior, justificativa e replay completo de regressão; B03 não autoriza isso.
+
+## Atualização de execução — 2026-10-08
+
+**B03 Node concluída** conforme protocolo v1, sem alteração de produção ou critérios: [resultados e limites](10-resultados-caracterizacao-filtros.md), [319 casos em JSON](10-resultados-caracterizacao-filtros.json). São 319 pass, 0 fail, 0 blocked; eventos e controles dos cinco registros reais preservados, geração repetida byte a byte. Achados descritivos: não há prime automático no primeiro passo, descrição notch0 é inconsistente e derivada interna tem lookback nominal+1 sem normalização temporal. B04 permanece independente; B05 aguarda suas dependências. O estado “execução pendente” no cabeçalho registra o momento de congelamento, superado por esta atualização.

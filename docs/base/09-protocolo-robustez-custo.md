@@ -1,6 +1,6 @@
 # 09 — Protocolo B04: robustez, sincronização e custo
 
-**Data:** 2026-10-08. **Estado:** protocolo v1 congelado; execução e budgets de produto pendentes.
+**Data:** 2026-10-08. **Estado:** protocolo v1 congelado; Node/VM executado; navegador/WebGL e budgets de produto pendentes. Resultados: [funcionais](11-resultados-robustez-custo.functional.json), [custo](11-resultados-robustez-custo.cost.json) e [interpretação](11-resultados-robustez-custo.md).
 **Vínculos:** [diretor](../specs/002-consolidacao-base-ecg-3d.md), [fundamento](03-robustez-eficiencia.md), [diagnóstico B01](06-diagnostico-arquitetura.md).
 
 ## 1. Objetivo e separação dos braços

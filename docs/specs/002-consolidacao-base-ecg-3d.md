@@ -1,6 +1,6 @@
 # SDD 002 — Consolidação da base ECG e preparação multimodal
 
-**Data:** 2026-10-08. **Estado:** pacote documental, B01 e B02 entregues; caracterização, medição de custo e implementação ainda não executadas.
+**Data:** 2026-10-08. **Estado atual:** B01/B02 e B03 entregues; B04 Node/VM medido, navegador pendente; correções B05 e aceite B06 não executados.
 
 ## 1. Objetivo e decisão
 
@@ -83,4 +83,22 @@ Próxima entrega: detalhar e congelar protocolos de **B03/B04**, usando as lacun
 
 Em 2026-10-08 foram congelados [B03 v1](../base/08-protocolo-caracterizacao-filtros.md) e [B04 v1](../base/09-protocolo-robustez-custo.md). B03 fixa grade/fs, estimador ganho/fase, fórmulas, tolerâncias numéricas, transientes e janelas reais descritivas. B04 fixa matriz funcional, braços Node/VM/navegador e método de custo/estabilidade; budgets de produto dependem de dispositivo-alvo e não foram inventados.
 
-Este gate documental está entregue; **B03/B04 ainda não executados**. Próxima tarefa concreta: implementar e executar o braço Node de B03 conforme protocolo, depois B04 em braços distintos. Falhas devem virar evidência, sem relaxar critérios ou modificar produção durante a medição.
+No fechamento do gate documental, B03/B04 ainda não haviam sido executados. A execução posterior está na seção 9. Falhas devem virar evidência, sem relaxar critérios ou modificar produção durante a medição.
+
+## 9. Execução B03 e B04 Node/VM
+
+**B03 entregue:** [resultados](../base/10-resultados-caracterizacao-filtros.md) e [JSON determinístico](../base/10-resultados-caracterizacao-filtros.json). Foram executados 319 casos: 270 senoides, 44 transientes/limites e cinco replays reais. Todos satisfizeram os critérios de caracterização; eventos e controles congelados permaneceram iguais. Isso demonstra consistência matemática nos ensaios escolhidos, não fidelidade clínica de todo conteúdo transformado. Inicialização sem prime automático, descrição do notch0 e lookback efetivo da derivada foram documentados, não alterados.
+
+**B04 parcial:** [resultados Node/VM](../base/11-resultados-robustez-custo.md), [funcionais](../base/11-resultados-robustez-custo.functional.json) e [custo](../base/11-resultados-robustez-custo.cost.json). Quatro cenários passaram, dois falharam e cinco ficaram parciais. F01 expôs aceitação de prefixo truncado; F02 reproduziu continuação com checksum divergente/unidade desconhecida; F08 reproduziu relógio antigo após reset na VM. Os testes verificam a reprodução desses achados, não declaram os comportamentos seguros.
+
+O benchmark acelerado registrou cinco repetições por configuração sintética e fases reais independentes, ambiente e memória. Não há dispositivo-alvo ou budget de produto definido; os tempos não incluem renderização real e não comprovam eficiência clínica/operacional em outros equipamentos.
+
+O braço navegador/WebGL continua **não aferido**. BrowserOS neo foi carregado, mas seus instrumentos não estão disponíveis nesta sessão; não foi usado outro navegador como substituição silenciosa. F07–F11 exigem verificação real, incluindo o caso F08 reproduzido em VM. Sem esse braço, B04 não está globalmente concluída e B06 não pode ser aprovada.
+
+### Prioridades para a próxima execução
+
+1. Completar navegador/WebGL procedural com o protocolo F07–F11, sem acessar o asset privado; confirmar fronteiras de pausa/reset e comportamento visual.
+2. Consolidar a lista B05 após o braço restante: integridade de carga e escala (F01/F02), relógio de reset (F08), depois clareza de metadados/instrumentação. Definir política explícita de rejeição/aviso antes de alterar comportamento de arquivos; não inventar unidade.
+3. Definir dispositivo/carga-alvo e budgets antes de qualquer otimização. Taxa Node elevada não dispensa estabilidade, renderização e memória de sessão.
+
+A validação conjunta desta entrega passou com 256 testes e benchmarks existentes; código de produção e dados não foram modificados. Autorizações de autonomia não alteram estes gates nem autorizam merge. Instrumentação, relatórios e lacunas constituem avanço persistido, não declaração de base consolidada.
