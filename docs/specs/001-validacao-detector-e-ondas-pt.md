@@ -294,3 +294,85 @@ A sonda confirma que morfologias repetidas dos N recuperados podem adquirir mem�
 **Limites:** só observar janelas completas perde cobertura; não há ajuste de alinhamento, níveis de energia por cluster, decisão de qualidade, sondagem de N não emitidos ou recuperação ativa. O banco usa memória limitada de vetores, mas o executor de pesquisa ainda guarda o registro inteiro e faz medições offline; não é implementação streaming pronta para produto. CPU e bytes totais do executor não foram aferidos nesta entrega. A sombra não impõe espera adicional, porque vetores incompletos são omitidos, não completados no futuro.
 
 **Próximo teste na mesma linha:** medir correspondência prévia para candidatas abaixo do limiar, em modo consulta **sem aprendizado por essas candidatas**. Comparar cobertura de N perdidos versus FP, usando template formado exclusivamente no passado; registrar separadamente banco do controle e banco cap 2. Essa ablação enfrenta o conflito de cold start sem permitir auto-confirmação. Eventos novos/imaturos não serão vetados, preservando o caminho dos V prematuros; qualidade e maturidade não terão poder de rejeição nesta fase. Só após essa evidência considerar níveis de energia por morfologia ou uma intervenção causal, mantendo os critérios originais e a avaliação independente pendente.
+
+## 16. Consulta causal de oportunidades abaixo da abertura, sem aprendizado
+
+O [plano e protocolo](../plans/2026-10-08-subthreshold-shadow-query.md) foram gravados **antes da execução de resultados**. Implementação somente em `web/tests`: `ShadowBank.query`, vetor causal reutilizado de `qrs-morphology.mjs` e executor `qrs-subthreshold-query.mjs`. O [JSON compacto persistente](../plans/2026-10-08-subthreshold-shadow-query-results.json) contém todos os **101 registros**, ambos os bancos, símbolos e todos os intervalos de 30 s do 108/207; não contém sinais ou dumps de eventos. Entrega persistida no PR #13, sem merge, promoção, alteração em `web/src`, reajuste de parâmetros ou pesquisa externa.
+
+Reproduzir em `web`:
+
+```powershell
+node --test tests\qrs-shadow-bank.test.mjs tests\qrs-morphology.test.mjs tests\qrs-subthreshold-query.test.mjs
+node tests\qrs-subthreshold-query.mjs --all --output ..\docs\plans\2026-10-08-subthreshold-shadow-query-results.json
+node tests\qrs-subthreshold-query.mjs mitdb/228 mitdb/108 mitdb/207 mitdb/210
+npm test
+```
+
+### 16.1. Oportunidade, alinhamento e relógio fixos
+
+Não consultar apenas candidatas fracas fechadas: esse recorte deixaria fora os 162/189 N perdidos sem candidata nas janelas da seção 8. A oportunidade desta ablação é **máximo local positivo da MWI, após calibração inicial, abaixo ou igual ao limiar de abertura registrado antes de processar a amostra do máximo**. A confirmação usa `anterior < máximo >= seguinte`, selecionando a primeira amostra de um platô. Não há piso de amplitude, filtro de refratário, restrição por candidata ativa ou gatilho por anotação; isso admite muitos máximos de ruído e vizinhanças de eventos já emitidos. Candidatas fracas **acima** da abertura não são um segundo estrato desta execução; não se mede recuperação exaustiva.
+
+Alinhar ao maior módulo do passa-banda no intervalo MWI **anterior e inclusivo** ao máximo, empate para a amostra mais antiga. Subtrair o atraso de grupo para o tempo estimado. Não otimizar alinhamento por correlação ou referência. Consultar na primeira amostra que já confirmou o máximo e completou o vetor ±80 ms; a confirmação e o lado direito do vetor são dados passados no instante da consulta. Oportunidade com vetor incompleto pode esperar essa disponibilidade, mas não se usa futuro além do instante da consulta, preenchimento no fim do registro ou sinal ainda não recebido. Essa espera é apenas da sonda; nenhuma emissão do detector espera por ela.
+
+Manter integralmente `SHADOW_PROTOCOL`: **4 templates, correlação assinada ≥0,90, 3 observações prévias para maturidade, expiração 30 s, ±80 ms, EMA 0,125**. Consultas filtram idade e excluem observação no mesmo instante **sem modificar nada**: vetor, suporte, `lastSeen`, `lastTime`, IDs, contadores, expiração ou expulsão. Executar a consulta **antes do aprendizado da emissão do mesmo passo**. Apenas eventos emitidos ensinam; nenhuma oportunidade consultada é aprendida. Bancos original/cap2 separados. Lacunas zeram o banco e invalidam histórico de máximos/consultas pendentes; vetores que cruzam amostras inválidas ficam indisponíveis.
+
+### 16.2. Denominadores e resultados dos 101 registros
+
+Pontuar pós-replay na janela oficial de 1 s até última referência +150 ms, tolerância ±150 ms. Primeiro parear emissões de cada banco com referências pelo algoritmo guloso existente; **remover as referências já detectadas** da avaliação incremental. `rawReferenceNearby` conta consultas com alguma referência próxima (não beats únicos); incidências por símbolo podem incluir mais de uma referência por consulta. `uniqueMissedNearby` conta referências perdidas únicas próximas de qualquer consulta, mesmo sem correspondência morfológica. As coberturas únicas por status podem se sobrepor e **não somam** a cobertura total.
+
+Para propostas com correspondência madura, fazer novo pareamento guloso um-a-um **apenas às referências perdidas do próprio banco**. `maturePairedMisses` é cobertura hipotética por proximidade, **não TP clínico nem emissão adicional**. `matureUnmatched` é carga de propostas não pareadas, **não FP clínico**; inclui duplicatas e vizinhanças de referências já detectadas. Não subtrair retrospectivamente as propostas ruins da sonda.
+
+| Medida na janela oficial | Original | Cap 2 |
+|---|---:|---:|
+| Emissões TP / FP / FN, inalteradas | 30.418 / 582 / 435 | 30.763 / 632 / 90 |
+| Consultas brutas | 358.799 | 357.680 |
+| Cold start (sem template anterior vivo) | 1.288 | 1.249 |
+| Correspondência imatura | 5.272 | 5.188 |
+| Sem correspondência | 337.198 | 336.197 |
+| Indisponível | 0 | 0 |
+| Correspondência madura | 15.041 | 15.046 |
+| Consultas próximas de alguma referência | 94.877 | 93.854 |
+| Consultas próximas de alguma referência perdida | 2.464 | 481 |
+| Referências perdidas únicas próximas de qualquer consulta | 434 / 435 | 90 / 90 |
+| Referências perdidas pareadas a proposta madura | 92 / 435 | 23 / 90 |
+| Propostas maduras não pareadas | 14.949 | 15.023 |
+| Não pareadas: vizinhança de perdida já coberta / duplicata | 107 | 34 |
+| Não pareadas: só vizinhança de já detectada | 4.924 | 4.940 |
+| Não pareadas: sem qualquer referência próxima | 9.918 | 10.049 |
+
+Símbolos das perdas pareadas a propostas maduras: original **N 78, V 7, F 1, a 3, E 1, L 2**; cap2 **N 11, V 5, F 1, a 3, E 1, L 2**. Denominadores de perdas por símbolo no original: N 375, V 39, F 8, R 1, E 2, a 7, L 2, A 1; cap2: N 34, V 35, F 8, R 1, E 2, a 7, L 2, A 1. A única perda sem oportunidade próxima no original é V do 228. Não confundir cobertura de consulta com reconhecimento: a maioria dos máximos não corresponde a template.
+
+Escopo de execução integral, além da janela oficial: **360.694 / 359.575** oportunidades enumeradas (original/cap2), **360.613 / 359.494** consultadas e **81 / 81** pendentes no EOF, sem padding futuro. Não houve lacuna real nas entradas selecionadas, nem vetor indisponível entre consultas pontuadas; testes sintéticos/injeção de lacuna cobrem esses caminhos, mas os zeros do corpus não validam desempenho em dados com falhas. Estatísticas de templates treinados continuam exatamente as da seção 15, inclusive expirações/expulsões; consultas não refrescam memória.
+
+### 16.3. Casos de desenvolvimento e intervalos difíceis, sem exclusão
+
+| Registro / banco | Consultas | Perdas originais do banco | Cobertura única por qualquer consulta | Perdas pareadas a proposta madura | Maduras não pareadas |
+|---|---:|---:|---:|---|---:|
+| 228 original | 29.621 | 352 (N 349, V 3) | 351 (N 349, V 2) | 73 (N 72, V 1) | 1.363 |
+| 228 cap2 | 28.621 | 8 N | 8 N | 5 N | 1.315 |
+| 108 original | 30.154 | 5 N | 5 N | 1 N | 2.444 |
+| 108 cap2 | 30.105 | 5 N | 5 N | 1 N | 2.486 |
+| 207 original | 20.619 | 10 (V 8, R 1, E 1) | 10 | 3 V | 529 |
+| 207 cap2 | 20.596 | 9 (V 7, R 1, E 1) | 9 | 2 V | 576 |
+| 210 original | 21.399 | 28 | 28 | 6 (V 1, F 1, a 3, E 1) | 1.133 |
+| 210 cap2 | 21.398 | 28 | 28 | 6 (V 1, F 1, a 3, E 1) | 1.148 |
+
+No **228 original**, todos os 349 N perdidos têm pelo menos uma oportunidade próxima derivada do sinal, incluindo o problema sem candidata da seção 8. Somente **72/349** encontram proposta madura pareável, bem diferente dos **240/341** N recuperados já emitidos e ensinados pelo cap2 na seção 15. Entre os N perdidos do original, proximidade por status é cold start 2, imatura 37, sem correspondência 346 e madura 72; estes conjuntos se sobrepõem. Logo a memória formada apenas pelo original não resolve automaticamente o cold start nem a alternância de energia. No cap2, a comparação incremental só considera suas oito perdas, não reconta os 341 N que ele já recuperou.
+
+No **108**, há 1.431 / 1.479 propostas maduras sem referência próxima (original/cap2). O intervalo **[690,720) s**, incluído, tem 500 consultas e **111 maduras não pareadas** em cada banco, 64 sem referência próxima, nenhuma perda pareada; **[540,570) s** tem 107 não pareadas, 48 sem referência próxima. No **207**, há 507 / 537 maduras sem referência próxima. Em **[210,240) s**, original/cap2 têm **81 não pareadas**, 79 sem referência próxima; somente o original pareia uma perda V nessa janela. Cap2 ainda tem **64 não pareadas sem referência próxima em [1560,1590) s**. Flutter/avaliabilidade e ruído continuam problemas separados: nada foi excluído ou automaticamente declarado batimento verdadeiro.
+
+O JSON conserva **todos** os intervalos de 30 s do 108/207, não apenas os exemplos acima. São estratos descritivos meio-abertos pelo tempo estimado da consulta; referências perdidas são alocadas pelo próprio tempo, podendo haver efeito de margem ±150 ms. Os agregados oficiais usam o registro inteiro, sem margens internas, e não são obtidos somando esses pareamentos de intervalos.
+
+No **210**, consultas não têm decisão/veto e as emissões são idênticas liga/desliga. Os V novos/imaturos em **602,178; 609,808; 945,772 s** permanecem no caminho normal; exigir maturidade ainda os colocaria em risco, como já demonstrado na seção 15.
+
+### 16.4. Verificação, conclusão e próxima hipótese limitada
+
+O executor compara **evento a evento** consulta ligada/desligada para original e cap2 em **todos os 101 registros** (202 pares de replays), e confere cada controle contra `validation.json` congelado. Testes cobrem imutabilidade profunda/erros, expiração só-leitura e limite de 30 s, polaridade, maturidade prévia, consulta antes da emissão corrente aprender, independência de anotações, prefixo/futuro perturbado, vetor completo, máximos/platôs, lacunas e duplicatas versus perdas únicas. Nenhuma alteração de limiar, promoção ou aprendizado a partir das consultas.
+
+Verificação final: **20/20 testes direcionados**, **219/219 em `npm test`**, seguido pelos benches sintético e real (exit 0); `node --check` e `git diff --check` passam, `web/src` sem diff. Não ocorreu falha aleatória IV/gzip. Duas execuções de `--all` produziram JSON byte-a-byte idêntico (SHA256 registrado no plano).
+
+**Conclusão:** oportunidades derivadas do sinal ampliam o alcance observacional para N que nem abriam candidata, mas o reconhecimento maduro cobre **92/435** perdas originais com **14.949** propostas maduras não pareadas, incluindo **9.918** sem referência próxima. Portanto recorrência/maturidade continua insuficiente para habilitar recuperação automática, mesmo com consulta estritamente causal. Não se pode chamar isso ganho de sensibilidade/VPP: o detector não mudou.
+
+**Próxima hipótese justificável, ainda não executada:** uma ablação descritiva da **compatibilidade de energia por template**, calculada causalmente só de emissões anteriores, pode investigar se as 9.918 propostas maduras sem referência próxima e as 92 perdas pareadas ocupam faixas de energia diferentes dentro da mesma morfologia. Pré-declarar as medições/denominadores antes de executar; manter consultas sem aprendizado, correlação/alinhamento atuais, original/cap2 separados e nenhum veto aos V novos. Não escolher limiar de energia nem alterar detector a partir desta entrega.
+
+Os 101 registros, incluindo LUDB ímpar e MIT-BIH já inspecionados, são **teste/desenvolvimento e regressão, não validação independente**. A correspondência temporal não demonstra identidade QRS, pureza de template ou mecanismo T/ruído. O alinhamento fixo trailing-MWI não é o mesmo alinhamento do pico emitido e não foi otimizado; máximos múltiplos geram propostas redundantes; correlacionar forma normalizada perde informação de escala. CPU, custo de memória global e integração streaming/produto ainda pendentes: o replay de pesquisa mantém arrays completos e compara múltiplas execuções. Critérios da seção 9 e registros inéditos permanecem necessários antes de qualquer promoção.

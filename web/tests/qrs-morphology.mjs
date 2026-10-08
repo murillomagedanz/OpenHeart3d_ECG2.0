@@ -80,7 +80,15 @@ export function causalSlope(signal, center, fs, availableIndex) {
   return { slopeMvPerS: slope, complete: end === index + radius, samples: end - start + 1 };
 }
 
-function replay(rec, notchHz, capped, shadowEnabled = true) {
+export function causalVector(signal, center, fs, availableIndex) {
+  const radius = Math.round(SHADOW_PROTOCOL.windowRadiusS * fs);
+  const index = Math.round(center * fs);
+  if (index - radius < 0 || index + radius > availableIndex || index + radius >= signal.length) return null;
+  const vector = Array.from(signal.slice(index - radius, index + radius + 1));
+  return vector.every(Number.isFinite) ? vector : null;
+}
+
+export function replay(rec, notchHz, capped, shadowEnabled = true, queryMonitor = null) {
   const source = new FileSource(rec);
   const pipeline = new SignalPipeline(source.fs, LEAD_NAMES.length, { notchHz, detectionLead: source.detectionLead });
   if (capped) pipeline.detector = new CappedLevelDetector(source.fs);
@@ -91,6 +99,8 @@ function replay(rec, notchHz, capped, shadowEnabled = true) {
   let inGap = false;
   while (!source.done) {
     const sample = source.next();
+    const before = pipeline.detector;
+    const openingThreshold = before.noiseLevel + 0.5 * (before.threshold - before.noiseLevel);
     const out = pipeline.step(sample);
     const d = pipeline.detector;
     const valid = !(out.mask && out.mask[source.detectionLead]);
@@ -98,8 +108,10 @@ function replay(rec, notchHz, capped, shadowEnabled = true) {
     if (!valid) {
       previousEmission = null;
       if (!inGap) bank?.notifyGap();
+      queryMonitor?.notifyGap();
     }
     inGap = !valid;
+    if (valid) queryMonitor?.step({ sample, bp, detector: d, openingThreshold, bank });
     if (out.event) {
       const slope = causalSlope(bp, out.event.t + d.groupDelay, source.fs, sample.index);
       const observation = {
@@ -111,10 +123,7 @@ function replay(rec, notchHz, capped, shadowEnabled = true) {
           ? slope.slopeMvPerS / previousEmission.slope : null,
       };
       const center = out.event.t + d.groupDelay;
-      const radius = Math.round(SHADOW_PROTOCOL.windowRadiusS * source.fs);
-      const index = Math.round(center * source.fs);
-      const complete = index - radius >= 0 && index + radius <= sample.index;
-      const vector = valid && complete ? Array.from(bp.slice(index - radius, index + radius + 1)) : null;
+      const vector = valid ? causalVector(bp, center, source.fs, sample.index) : null;
       const shadow = bank?.observe(vector, sample.t) ?? null;
       events.push({ ...out.event, causal: observation, shadow });
       if (valid) previousEmission = { t: out.event.t, slope: observation.slope };
