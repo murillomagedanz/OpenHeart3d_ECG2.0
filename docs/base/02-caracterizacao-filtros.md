@@ -1,6 +1,8 @@
 # 02 — Caracterização dos filtros e conteúdo transformado
 
-**Vínculo:** [SDD 002](../specs/002-consolidacao-base-ecg-3d.md), B03. **Depende:** B01. **Estado:** protocolo a detalhar antes da execução.
+**Vínculo:** [SDD 002](../specs/002-consolidacao-base-ecg-3d.md), B03. **Depende:** B01. **Estado:** protocolo v1 definido; execução pendente.
+
+O [protocolo executável de estudo v1](08-protocolo-caracterizacao-filtros.md) foi definido em 2026-10-08, antes das medições. Ensaios e implementação da instrumentação continuam pendentes; este documento conserva a fundamentação.
 
 ## Objetivo e fundamento
 

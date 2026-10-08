@@ -78,3 +78,9 @@ Cada futura ficha externa deve distinguir metadados, resumo e leitura integral, 
 **B02 concluída no escopo do inventário:** [reconciliação](../base/07-inventario-dados.md) e [snapshot por registro](../base/07-inventario-dados.json). São 106 registros no manifesto e completos localmente: 104 empacotados/rastreados e dois opcionais locais ignorados pelo Git (MIT-BIH 105/203). O relatório QRS congelado continua com 101 registros; a reprodução incluindo os dois opcionais tem 103. Os três restantes do inventário são PTB-XL, sem referência de tempos de batimento para esse escore. Conferiram 1.112 checksums WFDB de sinal; isso verifica consistência de decodificação, não verdade clínica ou cadeia criptográfica de proveniência. Nenhuma reserva independente foi declarada.
 
 Próxima entrega: detalhar e congelar protocolos de **B03/B04**, usando as lacunas do diagnóstico para escolher ensaios e critérios antes das medições. Separar caracterização dos filtros de validação operacional da interface e de benchmark de custo. Não implementar correções B05 antes de reunir B02, B03 e B04 conforme as dependências. Nenhum filtro, limiar, detector ou comando do 3D foi alterado nesta auditoria.
+
+### Protocolos definidos, execução pendente
+
+Em 2026-10-08 foram congelados [B03 v1](../base/08-protocolo-caracterizacao-filtros.md) e [B04 v1](../base/09-protocolo-robustez-custo.md). B03 fixa grade/fs, estimador ganho/fase, fórmulas, tolerâncias numéricas, transientes e janelas reais descritivas. B04 fixa matriz funcional, braços Node/VM/navegador e método de custo/estabilidade; budgets de produto dependem de dispositivo-alvo e não foram inventados.
+
+Este gate documental está entregue; **B03/B04 ainda não executados**. Próxima tarefa concreta: implementar e executar o braço Node de B03 conforme protocolo, depois B04 em braços distintos. Falhas devem virar evidência, sem relaxar critérios ou modificar produção durante a medição.
