@@ -3,6 +3,8 @@
 **Data:** 2026-10-08. **Estado:** protocolo v1 congelado; Node/VM executado; navegador/WebGL e budgets de produto pendentes. Resultados: [funcionais](11-resultados-robustez-custo.functional.json), [custo](11-resultados-robustez-custo.cost.json) e [interpretação](11-resultados-robustez-custo.md).
 **Vínculos:** [diretor](../specs/002-consolidacao-base-ecg-3d.md), [fundamento](03-robustez-eficiencia.md), [diagnóstico B01](06-diagnostico-arquitetura.md).
 
+**Seguimento delimitado:** [correção F08 e evidência atual v2](12-correcao-relogio-reset.md). A matriz/protocolo v1 e os JSONs **11** permanecem congelados; a exceção de reset não conclui navegador/B04, B05 global ou B06.
+
 ## 1. Objetivo e separação dos braços
 
 Verificar contratos operacionais e estabelecer custo inicial, sem otimizar ou alterar algoritmos. Separar **Node**, **integração em VM** e **navegador/WebGL real**. Um braço não substitui outro; ausência de navegador resulta em item bloqueado/não aferido, nunca aprovação.

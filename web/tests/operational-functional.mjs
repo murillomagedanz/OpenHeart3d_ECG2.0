@@ -9,6 +9,7 @@ import { LEAD_NAMES } from '../src/ecg/leads.js';
 import { FileSource, mapSignalsToLeads } from '../src/io/fileSource.js';
 import { loadRecord } from '../src/io/wfdb.js';
 import { readLocalRecord } from './validation-report.mjs';
+import { virtualApp } from './operational-app.mjs';
 
 const webRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const repoRoot = path.resolve(webRoot, '..');
@@ -160,6 +161,56 @@ export async function buildFunctionalReport() {
     throw new Error('Step/batch event or validity parity changed');
   }
 
+  const app = virtualApp();
+  app.context.testRecord = validRecord;
+  app.context.testMeta = { id: 'ludb/8', record: '8', dbName: 'LUDB', mainsHz: 50 };
+  app.run('useRecord(testRecord, testMeta); for (let i = 0; i < 2000; i++) step()');
+  const oldSignalTimeSeconds = app.run('state.signalTime');
+  app.run('state.paused = true');
+  const fileNotchResets = [60, 0, 50].map((notchHz) => {
+    app.elements.get('mains-hz').value = String(notchHz);
+    app.elements.get('mains-hz').handlers.change();
+    app.frame(0);
+    return {
+      notchHz, sourcePositionSeconds: app.run('state.source.position'),
+      signalTimeSeconds: app.run('state.signalTime'), heartTimeSeconds: app.run('heart.lastUpdate'),
+      signalIndex: app.run('state.signalIndex'),
+    };
+  });
+  const mitEntry = manifest.records.find((entry) => entry.id === 'mitdb/100');
+  const { rec: mitRecord } = await readLocalRecord(mitEntry);
+  app.context.testRecord = mitRecord;
+  app.context.testMeta = { id: 'mitdb/100', record: '100', dbName: 'MIT-BIH', mainsHz: 60 };
+  app.run('useRecord(testRecord, testMeta)');
+  app.frame(0);
+  const switchedFile = {
+    fs: app.run('state.source.fs'), aliasII: app.run('state.source.aliases.II'),
+    sourcePositionSeconds: app.run('state.source.position'),
+    signalTimeSeconds: app.run('state.signalTime'), heartTimeSeconds: app.run('heart.lastUpdate'),
+  };
+  app.run('useSynthetic()');
+  const freshSyntheticTimeSeconds = app.run('state.signalTime');
+  app.run('for (let i = 0; i < 2000; i++) step()');
+  const syntheticSource = app.run('state.source');
+  const qrsCount = app.run('heart.qrsCount');
+  const syntheticPositionSeconds = app.run('state.source.t');
+  app.elements.get('mains-hz').value = '50';
+  app.elements.get('mains-hz').handlers.change();
+  app.frame(0);
+  const continuingSynthetic = {
+    sourcePreserved: app.run('state.source') === syntheticSource,
+    sourcePositionSeconds: syntheticPositionSeconds,
+    signalTimeSeconds: app.run('state.signalTime'), heartTimeSeconds: app.run('heart.lastUpdate'),
+    resetDidNotTriggerQrs: app.run('heart.qrsCount') === qrsCount,
+  };
+  const clockCorrected = fileNotchResets.every((reset) => reset.sourcePositionSeconds === 0
+    && reset.signalTimeSeconds === 0 && reset.heartTimeSeconds === 0 && reset.signalIndex === -1)
+    && switchedFile.sourcePositionSeconds === 0 && switchedFile.signalTimeSeconds === 0
+    && switchedFile.heartTimeSeconds === 0 && freshSyntheticTimeSeconds === 0
+    && continuingSynthetic.sourcePreserved && continuingSynthetic.resetDidNotTriggerQrs
+    && continuingSynthetic.signalTimeSeconds === syntheticPositionSeconds
+    && continuingSynthetic.heartTimeSeconds === syntheticPositionSeconds;
+
   const cases = [
     caseResult('F01', 'partial', {
       validBundledFixture: { id: 'ludb/8', samples: validRecord.nSamples, allSignalChecksumsPass: validRecord.checksums.every((ok) => ok === true) },
@@ -213,15 +264,21 @@ export async function buildFunctionalReport() {
       browserRuntime: 'not measured; this execution is Node/VM only.',
     }, ['web/src/main.js', 'web/tests/operational-baseline.test.mjs', 'web/tests/source-controls.test.mjs'],
     'VM assertions do not prove real requestAnimationFrame timing or browser rendering.'),
-    caseResult('F08', 'failed', {
+    caseResult('F08', clockCorrected ? 'partial' : 'failed', {
       nodeVmControlTests: 'Synthetic/LUDB 8/MIT-BIH 100 transitions and notch 50/60/0 context resets are exercised by the targeted VM test.',
-      oldSignalTimeSeconds: 3.998,
-      signalTimeResetOnPipelineRebuild: false,
-      newContextFrameReceivedOldSignalTime: true,
+      expectedBehaviorVersion: 2,
+      oldSignalTimeSeconds,
+      signalTimeResetOnPipelineRebuild: clockCorrected,
+      newContextFrameReceivedOldSignalTime: fileNotchResets.some((reset) => reset.heartTimeSeconds === oldSignalTimeSeconds),
+      fileNotchResets,
+      switchedFile,
+      freshSyntheticTimeSeconds,
+      continuingSynthetic,
+      nodeVmStatus: clockCorrected ? 'passed' : 'failed',
       realRecordFixtures: ['ludb/8', 'mitdb/100'],
       browserRuntime: 'not measured.',
     }, ['web/src/main.js', 'web/src/io/fileSource.js', 'web/tests/operational-baseline.test.mjs'],
-    'The VM reproduces a stale signal-time value passed to Heart3D.update after a rebuild, before the new source has advanced; no browser execution.'),
+    'Current VM evidence checks the corrected clock before any new sample, including a continuing synthetic source. Browser/WebGL remains unmeasured; the frozen v1 baseline is historical, not reproduced by this generator.'),
     caseResult('F09', 'partial', {
       nodeVmEvidence: 'The existing spectrum-export VM tests cover 10 s readiness, invalidation on gaps, safe export metadata and no fabricated final T.',
       pTAndStftTests: ['web/tests/waves.test.mjs', 'web/tests/spectrum.test.mjs', 'web/tests/spectrum-export.test.mjs'],
@@ -243,14 +300,15 @@ export async function buildFunctionalReport() {
   ];
 
   return {
-    schema: 'openheart3d.ecg.operational-functional-baseline',
-    version: 1,
-    protocol: 'B04 v1',
+    schema: 'openheart3d.ecg.operational-functional-current',
+    version: 2,
+    protocol: 'B04 v1 + bounded F08 correction v2',
+    historicalBaseline: 'docs/base/11-resultados-robustez-custo.functional.json (frozen v1; not overwritten)',
     execution: 'Node/VM only; deterministic assertions and observed behavior. No browser, WebGL, network, key access, or private asset access.',
     command: 'node tests/operational-functional.mjs',
     cases,
     globalStatus: 'partial',
-    globalLimit: 'F02 is a reproduced P0 integrity/scale gap, F08 retains the prior signal time on rebuild, F01 truncation accepts a partial prefix, and F07-F11 remain runtime-partial because browser/WebGL was not measured. This does not close B06.',
+    globalLimit: 'F02 remains a reproduced P0 integrity/scale gap and F01 truncation accepts a partial prefix. F08 clock normalization is checked in the current VM; F07-F11 remain runtime-partial because browser/WebGL was not measured. This bounded exception does not complete B04, global B05 or B06.',
   };
 }
 
@@ -260,8 +318,8 @@ function mainRequested() {
 
 if (mainRequested()) {
   const report = await buildFunctionalReport();
-  const output = path.join(repoRoot, 'docs', 'base', '11-resultados-robustez-custo.functional.json');
+  const output = path.join(repoRoot, 'docs', 'base', '12-correcao-relogio-reset.functional.json');
   await mkdir(path.dirname(output), { recursive: true });
   await writeFile(output, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
-  console.log(JSON.stringify({ output: 'docs/base/11-resultados-robustez-custo.functional.json', cases: report.cases.length, globalStatus: report.globalStatus }, null, 2));
+  console.log(JSON.stringify({ output: 'docs/base/12-correcao-relogio-reset.functional.json', version: report.version, cases: report.cases.length, globalStatus: report.globalStatus }, null, 2));
 }

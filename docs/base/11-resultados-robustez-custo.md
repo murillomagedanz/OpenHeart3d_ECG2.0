@@ -5,6 +5,8 @@
 
 B04 foi executado sem alterar produção, algoritmos, limiares, dependências ou dados. A entrega fecha somente a medição Node e os testes de controles em VM: não fecha B04 em navegador, não fecha B06 e não certifica eficiência. Nenhum budget de produto foi definido.
 
+**Seguimento posterior:** [12 — correção delimitada F08](12-correcao-relogio-reset.md) documenta a exceção e a regressão atual. Este documento e seus JSONs **11** continuam baseline histórico anterior à correção. O gerador funcional atual é v2 e escreve [evidência 12](12-correcao-relogio-reset.functional.json); executar hoje o comando funcional abaixo não reproduz nem sobrescreve o snapshot v1.
+
 ## Artefatos e reprodução
 
 Em `web/`, na revisão `0884fd1` da branch `murillomagedanz-diagnostico-qrs`:

@@ -73,6 +73,8 @@ function buildPipeline(fs) {
   latestExportMetadata = null;
   spectrumExport.setDataset(null);
   state.signalIndex = -1;
+  // Arquivos reiniciam; notch sintético mantém a fonte na próxima amostra.
+  state.signalTime = state.mode === 'file' ? state.source.position : state.source.t;
   lastSpectrumVersion = -1;
   lastSpectrumAt = 0;
   heart.reset();

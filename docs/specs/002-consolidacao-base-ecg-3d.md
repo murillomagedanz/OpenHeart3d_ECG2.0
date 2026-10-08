@@ -1,6 +1,6 @@
 # SDD 002 — Consolidação da base ECG e preparação multimodal
 
-**Data:** 2026-10-08. **Estado atual:** B01/B02 e B03 entregues; B04 Node/VM medido, navegador pendente; correções B05 e aceite B06 não executados.
+**Data:** 2026-10-08. **Estado atual:** B01/B02 e B03 entregues; B04 Node/VM medido, navegador pendente; correção delimitada F08 entregue, B05 global e aceite B06 pendentes.
 
 ## 1. Objetivo e decisão
 
@@ -102,3 +102,11 @@ O braço navegador/WebGL continua **não aferido**. BrowserOS neo foi carregado,
 3. Definir dispositivo/carga-alvo e budgets antes de qualquer otimização. Taxa Node elevada não dispensa estabilidade, renderização e memória de sessão.
 
 A validação conjunta desta entrega passou com 256 testes e benchmarks existentes; código de produção e dados não foram modificados. Autorizações de autonomia não alteram estes gates nem autorizam merge. Instrumentação, relatórios e lacunas constituem avanço persistido, não declaração de base consolidada.
+
+## 10. Exceção delimitada: correção F08
+
+Para não bloquear uma correção determinística já reproduzida pelo impedimento de navegador, foi executada uma exceção explícita ao gate B05, restrita ao relógio de rebuild. [Relatório e regressões](../base/12-correcao-relogio-reset.md) e [evidência atual v2](../base/12-correcao-relogio-reset.functional.json) preservam o baseline histórico 11.
+
+`buildPipeline` agora sincroniza `state.signalTime` com a posição da fonte antes de qualquer nova amostra: arquivo reiniciado usa posição zero; mudança de notch sintético conserva a posição corrente do gerador. Testes cobrem troca pausada, reinício, EOF, continuação sintética e ausência de QRS artificial no reset. Filtros, detector e dados continuam inalterados.
+
+F08 passa em VM, não no navegador ainda não aferido. Validação: 259 testes e benchmarks existentes aprovados. Não há autorização de B05 global/B06: F01/F02, navegador e budgets continuam pendentes. Esta exceção não generaliza permissões para alterar política de integridade ou unidades sem definição própria.
