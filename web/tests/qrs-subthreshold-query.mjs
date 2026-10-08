@@ -155,7 +155,7 @@ const score = (refs, events) => {
   return { tp: result.tp, fp: result.fp, fn: result.fn };
 };
 
-export async function investigateQueries(entry, manifest, expected, { onBank = null } = {}) {
+export async function investigateQueries(entry, manifest, expected, { onBank = null, createMonitor = () => new OpportunityMonitor() } = {}) {
   const { rec } = await readLocalRecord(entry);
   const refs = rec.annotations.filter((a) => BEAT_SYMBOLS.has(a.symbol))
     .map((a) => ({ t: a.sample / rec.header.fs, symbol: a.symbol })).filter((r) => r.t >= WARMUP_S);
@@ -163,7 +163,7 @@ export async function investigateQueries(entry, manifest, expected, { onBank = n
   const until = refs.at(-1).t + TOLERANCE_S;
   const banks = {};
   for (const [name, capped] of [['control', false], ['cap2', true]]) {
-    const monitor = new OpportunityMonitor();
+    const monitor = createMonitor();
     const on = replay(rec, manifest.databases[entry.db].mainsHz, capped, true, monitor);
     const off = replay(rec, manifest.databases[entry.db].mainsHz, capped, false);
     if (JSON.stringify(plainEvents(on)) !== JSON.stringify(plainEvents(off))) {
@@ -179,7 +179,7 @@ export async function investigateQueries(entry, manifest, expected, { onBank = n
     const missed = refs.filter((r) => !hits.has(r));
     const queries = monitor.rows.filter((q) => q.t >= WARMUP_S && q.t <= until);
     const classified = classifyMature(refs, missed, queries);
-    onBank?.({ bank: name, id: entry.id, classified, queries });
+    onBank?.({ bank: name, id: entry.id, classified, queries, refs, missed });
     banks[name] = { emitted, ...summarizeQueries(refs, missed, queries, classified),
       lifecycle: { enumeratedFullRecord: monitor.enumerated, queriedFullRecord: monitor.rows.length,
         invalidatedPending: monitor.invalidated, pendingAtEof: monitor.pending.length },

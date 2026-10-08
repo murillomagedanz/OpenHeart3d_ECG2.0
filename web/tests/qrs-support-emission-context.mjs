@@ -177,7 +177,7 @@ export function queryAvailability(queries) {
     })) };
 }
 
-export async function runContextStudy(selected, manifest) {
+export async function runContextStudy(selected, manifest, { createMonitor, onBank: extraOnBank } = {}) {
   const rowsByBank = { control: new Map(), cap2: new Map() };
   const availability = { control: new Map(), cap2: new Map() };
   const records = [];
@@ -185,7 +185,9 @@ export async function runContextStudy(selected, manifest) {
     const entry = manifest.records.find((r) => r.id === expected.id && r.bundled);
     if (!entry) throw new Error(`Unbundled record: ${expected.id}`);
     records.push(await investigateQueries(entry, manifest, expected, {
-      onBank: ({ bank, id, classified, queries }) => {
+      ...(createMonitor ? { createMonitor } : {}),
+      onBank: ({ bank, id, classified, queries, ...rest }) => {
+        extraOnBank?.({ bank, id, classified, queries, ...rest });
         rowsByBank[bank].set(id, contextRows(id, classified));
         availability[bank].set(id, queryAvailability(queries));
       },
