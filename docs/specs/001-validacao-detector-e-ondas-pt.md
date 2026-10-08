@@ -412,3 +412,88 @@ Registros-chave (AUC agregada pareada vs. não pareada; estratificada): 228 orig
 As perdas pareadas ocupam, em geral, energia relativa **maior** que as propostas sem referência (diferença de ~3,5 oitavas na mediana, ou ~3,4× em amplitude), e o contraste persiste dentro de templates, portanto não é só mistura entre templates. Porém: (i) a diferença é principalmente contra o estrato sem referência, que já é "ruído abaixo do prior"; contra já detectadas e duplicadas a separação é fraca ou nula, e as próprias propostas já detectadas (batimentos reais) são de baixa energia, de modo que energia relativa não distingue "batimento perdido" de "batimento já detectado"; (ii) a sobreposição é grande (34%–53% nos intervalos p10–p90) e a maioria das pareadas (62/92) fica **abaixo** do mínimo prior emitido; (iii) 92 pareadas em 9 registros, dominadas por 228 (73), 4 registros com suporte para AUC por template; (iv) o prior é estado variável no tempo (inclui candidatas emitidas ruidosas), idade/suporte distintos entre grupos; (v) alinhamento trailing-MWI das consultas ≠ alinhamento da emissão. Nenhum limiar de energia foi escolhido, não há afirmação de separabilidade, de sensibilidade/VPP, nem de resolução do cold start; não se deve interpretar como VP/FP clínico.
 
 **Conclusão:** evidência descritiva positiva e parcial, mas insuficiente para qualquer limiar ou intervenção. Uma próxima hipótese local limitada seria avaliar (sem tocar o detector) se combinar energia relativa com a maturidade/suporte e com a vizinhança de detecções emitidas (já detectada) reduz a sobreposição, pré-declarada e com validação em registros inéditos. Conjunto de 101 registros = desenvolvimento/regressão, não validação independente; CPU/memória do estado extra (3 floats por template) não medidos; validação de produção e registros inéditos pendentes.
+
+## 18. Suporte prévio e distância de decisão emitida: estudo limitado de contexto
+
+O [protocolo](../plans/2026-10-08-support-emission-context.md) foi congelado **antes do primeiro resultado**. O [relatório persistente](../plans/2026-10-08-support-emission-context-results.json) conserva os 101 registros, bancos separados, distribuições/denominadores, estratos condicionais, templates qualificados, diagnóstico sem 228 e todos os intervalos do 108/207. Implementação somente em `web/tests`, sem APIs externas, aprendizado de consultas, classificador, escore combinado, escolha de limiar ou ajuste após resultados. A hipótese da seção 17 é investigada aqui **descritivamente**, não como modelo multivariável validado.
+
+### 18.1. Relógios, suporte e protocolo causal
+
+`supportBefore` e `ageS` são exatamente os campos anteriores da consulta ao template; nenhuma emissão corrente aumenta retroativamente o suporte. Mantêm-se oportunidades, alinhamento, pareamento e pontuação, correlação 0,90, maturidade 3, quatro templates, expiração 30 s, janela ±80 ms e EMA 0,125. Apenas emissões ensinam.
+
+O evento anterior é a última emissão válida **disponível em ordem de decisão, estritamente antes de `queriedAt`**. A consulta ocorre antes da emissão do passo corrente e não a usa, mesmo se seu `event.t` estimado for anterior à candidata. O replay não filtra aquecimento antes de construir esse estado; lacunas o zeram. Evento anterior com vetor não aprendível ainda é emissão anterior. Nunca se usa anotação nem proximidade bilateral de referência como atributo online.
+
+**Relógio primário:** `elapsedDecisionS = queriedAt − previous.emittedAt`, positivo quando disponível. **Diagnóstico separado:** `signedEstimatedS = candidate.t − previous.event.t`, que pode ser negativo com oportunidade atrasada e **não é tempo refratário não negativo**. Ausência de emissão anterior é `missing`, sem imputação. Os bins de decisão são [0;0,22), [0,22;0,36), [0,36;1), [1;∞) e missing. 0,22 s vem do parâmetro refratário atual, 0,36 s do antigo screen descritivo, 1 s é apenas descritivo; o relógio de decisão não é o relógio estimado usado pelo detector. Nenhum bin aceita/rejeita propostas. Suporte: 3–5, 6–15, ≥16; também são descritas as 15 células conjuntas e contexto dentro das oitavas de energia previamente fixadas.
+
+**Comparação primária:** maduras pareadas um-a-um a **perdas do próprio baseline** versus não pareadas **sem referência próxima**. Comparações com já detectadas, duplicadas e todas não pareadas são secundárias e distintas. Maior energia e maior distância de decisão são direções pré-declaradas; suporte não tem direção monotônica pressuposta. AUC, quantis, sobreposição p10–p90 e diferenças de proporções por bin são descrições, não validação causal ou desempenho incremental de combinação.
+
+### 18.2. Denominadores oficiais e efeito da mistura
+
+Mantêm-se 30.418 TP / 582 FP / 435 FN no original e 30.763 / 632 / 90 no cap2. São **38 registros com propostas maduras**, nove com perdas pareadas, em ambos os bancos; os outros 63 continuam no relatório, não são excluídos. As 92/23 pareadas e 14.949/15.023 não pareadas são as mesmas das seções 16–17. Os números abaixo não são novos TP/FP.
+
+| Medida primária (pareadas / sem referência) | Original | Cap2 |
+|---|---:|---:|
+| Propostas | 92 / 9.918 | 23 / 10.049 |
+| Energia e decisão prévia disponíveis | 92 / 9.918 | 23 / 10.049 |
+| Mediana L | −3,154 / −7,120 | −3,298 / −7,077 |
+| Suporte prévio mediano | 39 / 33 | 205 / 28 |
+| Decisão anterior: mediana, s | 1,181 / 0,561 | 0,583 / 0,556 |
+| Decisão anterior: p10–p90 pareadas, s | 0,439–7,108 | 0,286–1,686 |
+| Decisão anterior: p10–p90 sem referência, s | 0,242–0,942 | 0,242–0,894 |
+| AUC energia agregada / dentro de template | 0,8681 / 0,9702 | 0,8357 / 0,9287 |
+| AUC decisão agregada / dentro de template | 0,8656 / 0,5846 | 0,6130 / 0,5522 |
+| Sem referência dentro do p10–p90 de decisão pareada | 63,90% | 74,10% |
+| Pareadas dentro do p10–p90 de decisão sem referência | 17,39% | 60,87% |
+| Templates primários com ≥3 observações por grupo | 4 | 2 |
+
+Sem 228, **apenas como diagnóstico**, restam original 19 pareadas / 8.714 sem referência e cap2 18 / 8.831. AUC energia original 0,8507 (dentro de template 0,9248), decisão **0,5570** (0,5308); cap2 0,8360 (0,9249), decisão **0,5564** (0,5312). A sobreposição de decisão sobe a 71,16% / 73,68% (sem referência dentro do intervalo pareado / vice-versa), original. Logo a associação marginal forte do tempo é sobretudo mistura/dominância do 228 (**73/92 pares**); não se mantém como separação robusta dentro de template ou sem esse registro.
+
+Das 358.799 / 357.680 consultas pontuadas, **650 / 650** não têm emissão anterior; todas são cold start (dos 1.288 / 1.249 cold starts totais). Nenhuma proposta madura está sem prior. O diagnóstico do relógio estimado identifica **20 / 23 diferenças negativas**: original duas imaturas e 18 sem correspondência; cap2 23 sem correspondência. Entre maduras há zero negativas e **2 / 4 zeros**, todos sem referência próxima. Isso não autoriza redefinir o relógio assinado como não negativo; testes também cobrem seu caminho negativo. O corpus não tem lacunas reais; reset é verificado por injeção.
+
+### 18.3. Estratos fixos, suporte e sobreposição secundária
+
+| Estrato primário | Original: pareadas / sem referência; AUC energia | Cap2: pareadas / sem referência; AUC energia |
+|---|---|---|
+| Suporte 3–5 | 1 / 1.742; 0,4828 | 0 / 1.806; indisponível |
+| Suporte 6–15 | 9 / 1.756; 0,8378 | 4 / 2.043; 0,9003 |
+| Suporte ≥16 | 82 / 6.420; 0,8943 | 19 / 6.200; 0,8427 |
+| Decisão [0;0,22) s | 1 / 314; 0,8057 | 1 / 360; 0,8028 |
+| Decisão [0,22;0,36) s | 4 / 2.734; 0,8135 | 4 / 2.710; 0,8044 |
+| Decisão [0,36;1) s | 18 / 6.083; 0,8888 | 10 / 6.479; 0,8544 |
+| Decisão [1;∞) s | 69 / 787; 0,9374 | 8 / 500; 0,8440 |
+
+Contagens agregadas não conferem elegibilidade por registro. No original, suporte 6–15 é elegível em 207/228, suporte ≥16 em 208/210/228; tempo [0,36;1) em 210/228 e ≥1 s **só no 228**. No cap2, tempo [0,36;1) é elegível apenas em 210 e ≥1 s apenas em 228. As outras células têm poucos pares por registro.
+
+O suporte não sugere uma direção universal: mediana pareada/sem referência no original é **8/15 em 207**, **1.064/12 em 208**, **351/326 em 210**, **36/15 em 228**. No template primário qualificado de 210, suporte é **205/496** apesar de AUC energia 1,00: suporte alto não equivale a proposta correta. Os quatro templates qualificados originais são três do 228 e um do 210; no cap2, um de cada. Não se escolhe retrospectivamente uma direção de AUC de suporte.
+
+Dentro da faixa energética L<−4, AUC de decisão é 0,9215 no original (38/8.293), mas só 208/228 têm ≥3 por grupo; em [−4;−2), cai a **0,5608** (16/1.485), elegível em 210/228. Cap2: **0,7612** (7/8.346) e **0,5138** (13/1.512), respectivamente; na segunda faixa apenas 210 é elegível. As demais oitavas têm comparadores/pares esparsos. Condicionar altera distribuições, mas não demonstra ganho incremental de predição.
+
+Secundárias preservadas, AUC energia / decisão (original; cap2): já detectadas, n=4.924/4.940, **0,6997 / 0,8298; 0,6332 / 0,4789**; duplicadas, n=107/34, **0,4822 / 0,5380; 0,5275 / 0,4674**. Na comparação duplicada, 85,98% das originais e 91,18% das cap2 caem no p10–p90 de decisão pareada, e 76,09% / 73,91% das pareadas no intervalo das duplicadas. Portanto o tempo não elimina a carga duplicada. Contra já detectadas, AUC de decisão dentro de template é **0,2770 / 0,2626**, direção oposta ao agregado original. Não usar a separação contra sem referência para esconder esses estratos.
+
+### 18.4. Fechamento pré-declarado, intervalos difíceis e continuidade
+
+O critério exigia ≥3 registros **não-228** com ≥3 pares e ≥3 comparadores primários utilizáveis, direção de energia e decisão >0,5 em cada registro elegível, e pelo menos **uma mesma célula conjunta** suporte/tempo elegível em ≥3 registros não-228, também com energia >0,5 em cada registro elegível da célula. Cap2 não pode substituir o controle para passar o critério.
+
+| Registro não-228 elegível, original | Pares / sem referência | AUC energia | AUC decisão |
+|---|---:|---:|---:|
+| 207 | 3 / 507 | 0,8817 | **0,4497** |
+| 208 | 4 / 1.210 | **0,3593** | 0,8712 |
+| 210 | 6 / 968 | 0,9974 | 0,6525 |
+
+Há os três registros marginais requeridos, mas **zero células conjuntas qualificadas em três registros não-228**. Apenas 210 tem célula conjunta não-228 elegível: suporte ≥16 e decisão [0,36;1), 4/417, energia 0,9994 (cap2 4/462, 0,9995). Em cap2, só **dois** registros marginais elegíveis, 208/210, também zero células conjuntas replicadas. Além da esparsidade, as direções marginais discordam em 207 (tempo) e 208 (energia). O comparador primário aqui é sem referência, não todas não pareadas da seção 17.
+
+**Fechamento: `inconclusive-sparse` em ambos os bancos**, segundo o protocolo. Não há consistência demonstrada além do 228; esparsidade não é refutação da hipótese, e os contraexemplos observados não devem ser ocultados. Nem mesmo eventual aprovação deste critério descritivo provaria desempenho incremental multivariável: não houve fit, pesos, escore, validação independente ou intervenção.
+
+Todos os **61 intervalos de 30 s de cada registro 108 e 207, em cada banco**, permanecem no JSON. O resumo anterior de consultas é conservado, e o contexto é alocado pelo tempo estimado com **rótulos do pareamento global** (não refeito nas margens dos intervalos). 108 [690;720) tem 111 não pareadas, 64 sem referência e zero pares em ambos; [540;570) tem 107/48/0. 207 [210;240) tem 81 não pareadas/79 sem referência nos dois bancos, um par original e zero cap2; cap2 [1560;1590) conserva 64 sem referência e zero pares. Nenhum trecho de ruído/flutter foi removido.
+
+**Próximo passo recomendado, não executado nem autorizado automaticamente:** encerrar esta sequência de adicionar covariáveis; fazer uma única reavaliação limitada do gargalo de cobertura/alinhamento já identificado (434/435 perdas originais próximas de oportunidades, mas só 92 pareáveis maduras), ou decidir a reserva de registros inéditos antes de qualquer nova hipótese. Pré-declarar eventual estudo separado; não reajustar os bins, escolher limiar ou ampliar indefinidamente atributos para tentar fazer o critério passar. Preservar a linha local e os gates da seção 9.
+
+Limites: oportunidades correlacionadas, alinhamento trailing-MWI diferente da emissão, prior temporal variável e possivelmente contaminado, quantis de grupos muito pequenos, corpus de desenvolvimento/regressão, CPU/memória global e integração streaming não aferidos, nenhum ganho clínico demonstrado. As 650 consultas sem prior e os zeros de lacunas reais não validam detecção em inicialização/falhas.
+
+### 18.5. Verificação e estado de entrega
+
+Reprodução em `web`: `node tests\qrs-support-emission-context.mjs --all --output ..\docs\plans\2026-10-08-support-emission-context-results.json`. Projeções de **ambos** os relatórios anteriores: 101/101 registros, totais e protocolos exatamente idênticos; arquivos anteriores não reescritos. Controles congelados 101/101 e eventos on/off idênticos em 101 original + 101 cap2.
+
+Relatório final **4.867.030 bytes**, duas regenerações byte-a-byte idênticas, SHA256 `D039D02E4EF4B8895506D89B84C1224481A2A116DEBF44A4082B6F1F53560DFF`; contém estatísticas, não sinais ou eventos brutos. **36/36 testes direcionados**, **235/235 `npm test`** (227 anteriores + oito novos), benches sintético/real exit 0. `node --check` nos quatro módulos alterados/novos, `git diff --check` limpo e `web/src` sem diff. Nenhuma falha aleatória IV/gzip nas execuções completas; nenhuma correção não relacionada.
+
+Pesquisa concluída e verificada no worktree. A subtarefa entregou os artefatos sem commit; o coordenador revisou a evidência e publica plano, relatório, testes e esta seção juntos no PR #13. Sem merge ou promoção do detector.

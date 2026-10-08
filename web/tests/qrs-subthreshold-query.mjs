@@ -17,6 +17,17 @@ export const QUERY_PROTOCOL = Object.freeze({
   intervalS: 30,
 });
 
+export function priorEmissionContext(candidateT, queriedAt, previousEmission = null) {
+  if (!previousEmission) return { status: 'missing', previousEventT: null, previousEmittedAt: null,
+    elapsedDecisionS: null, signedEstimatedS: null };
+  if (![candidateT, queriedAt, previousEmission.t, previousEmission.emittedAt].every(Number.isFinite)
+    || previousEmission.emittedAt >= queriedAt) {
+    throw new RangeError('Emission context requires a strictly earlier finite decision');
+  }
+  return { status: 'available', previousEventT: previousEmission.t, previousEmittedAt: previousEmission.emittedAt,
+    elapsedDecisionS: queriedAt - previousEmission.emittedAt, signedEstimatedS: candidateT - previousEmission.t };
+}
+
 export class OpportunityMonitor {
   constructor() {
     this.history = [];
@@ -32,7 +43,7 @@ export class OpportunityMonitor {
     this.pending = [];
   }
 
-  step({ sample, bp, detector: d, openingThreshold, bank }) {
+  step({ sample, bp, detector: d, openingThreshold, bank, previousEmission = null }) {
     const frame = { index: sample.index, t: sample.t, feat: d.mwiSum / d.mwiLen,
       openingThreshold, calibrated: d.n >= d.fs };
     this.history.push(frame);
@@ -65,7 +76,8 @@ export class OpportunityMonitor {
       }
       const vector = opportunity.aligned
         ? causalVector(bp, opportunity.center / d.fs, d.fs, sample.index) : null;
-      this.rows.push({ ...opportunity, queriedAt: sample.t, query: bank.query(vector, sample.t) });
+      this.rows.push({ ...opportunity, queriedAt: sample.t, query: bank.query(vector, sample.t),
+        priorEmission: priorEmissionContext(opportunity.t, sample.t, previousEmission) });
     }
     this.pending = waiting;
   }
@@ -167,7 +179,7 @@ export async function investigateQueries(entry, manifest, expected, { onBank = n
     const missed = refs.filter((r) => !hits.has(r));
     const queries = monitor.rows.filter((q) => q.t >= WARMUP_S && q.t <= until);
     const classified = classifyMature(refs, missed, queries);
-    onBank?.({ bank: name, id: entry.id, classified });
+    onBank?.({ bank: name, id: entry.id, classified, queries });
     banks[name] = { emitted, ...summarizeQueries(refs, missed, queries, classified),
       lifecycle: { enumeratedFullRecord: monitor.enumerated, queriedFullRecord: monitor.rows.length,
         invalidatedPending: monitor.invalidated, pendingAtEof: monitor.pending.length },

@@ -111,7 +111,7 @@ export function replay(rec, notchHz, capped, shadowEnabled = true, queryMonitor 
       queryMonitor?.notifyGap();
     }
     inGap = !valid;
-    if (valid) queryMonitor?.step({ sample, bp, detector: d, openingThreshold, bank });
+    if (valid) queryMonitor?.step({ sample, bp, detector: d, openingThreshold, bank, previousEmission });
     if (out.event) {
       const slope = causalSlope(bp, out.event.t + d.groupDelay, source.fs, sample.index);
       const observation = {
@@ -126,7 +126,7 @@ export function replay(rec, notchHz, capped, shadowEnabled = true, queryMonitor 
       const vector = valid ? causalVector(bp, center, source.fs, sample.index) : null;
       const shadow = bank?.observe(vector, sample.t) ?? null;
       events.push({ ...out.event, causal: observation, shadow });
-      if (valid) previousEmission = { t: out.event.t, slope: observation.slope };
+      if (valid) previousEmission = { t: out.event.t, emittedAt: sample.t, slope: observation.slope };
     }
   }
   return { bp, events, source, groupDelay: pipeline.detector.groupDelay,
