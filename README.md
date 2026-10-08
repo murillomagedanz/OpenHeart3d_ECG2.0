@@ -55,4 +55,4 @@ Para os primeiros experimentos, priorizar métricas de detecção e qualidade do
 
 ## Código aberto e colaboração
 
-O objetivo é publicar software, protocolos e resultados reprodutíveis sem divulgar dados sensíveis. **A licença de código ainda precisa ser escolhida** antes de aceitar contribuições externas; cada conjunto de dados terá de respeitar sua própria licença e termos de uso. Este README descreve a direção do projeto; o que já existe está listado em "Estado atual".
+O objetivo é publicar software, protocolos e resultados reprodutíveis sem divulgar dados sensíveis. O código da edição comunitária (CE) é licenciado sob **GNU AGPL-3.0** ([LICENSE](LICENSE); decisão D17); recursos de edições futuras podem ter licença comercial distinta. **Contribuições externas só serão aceitas após definir o acordo de contribuição (CLA)**, necessário para manter a licença comercial alternativa. A licença do código não cobre os dados nem o modelo anatômico opcional: cada conjunto de dados terá de respeitar sua própria licença e termos de uso. Este README descreve a direção do projeto; o que já existe está listado em "Estado atual".
