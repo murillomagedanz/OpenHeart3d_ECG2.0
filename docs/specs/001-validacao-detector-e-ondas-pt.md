@@ -137,3 +137,32 @@ Cap 2 nos **101 registros**: 30.763 TP / 632 FP / 90 FN, sensibilidade **0,9971*
 **Conclusão:** rejeitar também esta variante como alteração de produção, preservando-a para comparação. Ela é mais seletiva que o decaimento, mas não é um discriminador de QRS versus T/ruído. Dos 48 FP no 228 (incluindo os preexistentes), 41 ocorrem até 400 ms após o batimento anotado anterior e 11 são emissões por search-back. Isso é uma localização temporal, não prova de que sejam T ou redetecção do QRS. A investigação seguinte deve comparar inclinação, duração e forma nesses FP com N recuperados antes de definir um discriminador; não estender o refratário cegamente, nem adicionar um terceiro ajuste sem evidência.
 
 Nenhuma variante foi promovida ao produto, os escores brutos continuam intactos e não há avaliação independente em registros novos nesta entrega. Mesmo uma aprovação futura do piloto ainda exigirá congelamento dos parâmetros, validação final reservada e testes de streaming, lacunas e custo antes da promoção.
+
+## 12. Investigação morfológica: FP versus N recuperados
+
+`tests/qrs-morphology.mjs` repete controle e cap 2 desde o início dos registros, verifica o controle contra o relatório congelado e rotula os eventos com o mesmo pareamento temporal guloso. Um N recuperado é uma referência N pareada no piloto e não pareada no controle (341 no 228); os 344 TP líquidos extras não são todos N. A referência anotada rotula os grupos somente depois do processamento, nunca alimenta o detector.
+
+```powershell
+node tests\qrs-morphology.mjs mitdb/228 mitdb/108 mitdb/207
+node tests\qrs-morphology.mjs --all
+node --test tests\qrs-morphology.test.mjs
+```
+
+As medidas usam o passa-banda **interno** do detector, com janela ±80 ms centrada no pico estimado mais o atraso de grupo. Inclinação é o máximo da diferença sobre aproximadamente 10 ms, normalizada em mV/s. Largura é a extensão contígua acima de metade do máximo absoluto; **não é duração clínica de QRS**. Correlação de Pearson com a janela do evento anterior preserva o sinal/polaridade. Janelas incompletas ou com lacunas devolvem medidas ausentes; larguras que atingem a borda são explicitamente censuradas.
+
+| Mediana no 228 | FP (48) | N recuperados (341) |
+|---|---:|---:|
+| Inclinação máxima (mV/s) | 12,405 | 22,513 |
+| Razão de inclinação para evento anterior | 0,186 | 0,914 |
+| Intervalo para evento anterior (s) | 0,250 | 0,919 |
+| Correlação com evento anterior | −0,519 | 0,917 |
+| Largura a meia amplitude (ms) | 63,9 | 33,3 |
+| Larguras censuradas (contagem) | 38 | 20 |
+
+**Achados:** muitos FP são precoces, de menor inclinação relativa e com polaridade/forma diferente do evento anterior. Há sobreposição: razões de inclinação dos N recuperados chegam a 0,185, e dos FP a 1,061; inclinação ou correlação isolada não separam todos os grupos. A censura de 38/48 larguras dos FP impede concluir que sejam ondas T apenas por serem largas. Não há anotações de T no MIT-BIH usadas nesta investigação, portanto a identidade T versus cauda/rebote do complexo continua não comprovada. No 207, FP têm correlação mediana 0,889 e razão de inclinação 1,012: o padrão de flutter não é o mesmo dos FP precoces no 228.
+
+**Triagem observacional fixa:** intervalo para evento anterior ≤360 ms e razão de inclinação <0,5, medida antes de qualquer escolha de novo parâmetro. Ela sinaliza **36/48 FP e 0 TP no 228**, 2 FP e 0 TP no 108, 1 FP e 0 TP no 207. Nos **101 registros**, sinaliza **45 FP e 3 TP**; os três TP são do **210**. Nenhum N recuperado é sinalizado nesse conjunto. Isso favorece testar discriminação temporal/inclinação de maneira controlada, mas demonstra que a regra não é um classificador seguro de T: também atingiria batimentos reais.
+
+Esta triagem **não remove eventos**, não altera níveis ou RR, não mede ganho de um detector modificado e não representa validação independente. A conta estática de 48−36=12 FP no 228 não pode ser tomada como resultado de streaming: rejeitar um evento muda reservas, RR, aprendizado e decisões subsequentes. Além disso, a janela morfológica observa até 80 ms depois do centro; uma implementação causal precisa aguardar essas amostras e contabilizar a latência, ou definir outra medida causal e avaliá-la separadamente.
+
+**Próxima etapa delimitada:** formular um único discriminador causal de candidata pós-complexo, preservando explicitamente os TP do 210; comparar replay completo, e não pós-filtragem da lista. Manter cap 2 como hipótese não promovida, publicar efeito adicional versus cap 2 e versus referência original, e só considerar promoção após os critérios piloto e avaliação final independente. Nesta entrega não se executa uma terceira alteração do detector.
