@@ -27,7 +27,20 @@ export function matchBeats(refs, dets, toleranceS = DEFAULT_TOLERANCE_S) {
     ppv: d.length ? tp / d.length : 0,
     meanErrorMs: mean(errors) * 1000,
     maeMs: mean(errors.map(Math.abs)) * 1000,
+    errorsS: errors, // erro com sinal (detecção − referência) de cada par, para agregados
   };
+}
+
+// Resumo de erros temporais (em ms) de uma lista de erros em segundos.
+export function summarizeErrors(errorsS) {
+  const n = errorsS.length;
+  if (!n) return { n: 0, meanMs: 0, sdMs: 0, medianAbsMs: 0, p95AbsMs: 0 };
+  const ms = errorsS.map((e) => e * 1000);
+  const mean = ms.reduce((a, b) => a + b, 0) / n;
+  const sd = Math.sqrt(ms.reduce((a, b) => a + (b - mean) ** 2, 0) / n);
+  const abs = ms.map(Math.abs).sort((a, b) => a - b);
+  const q = (p) => abs[Math.min(n - 1, Math.floor(p * (n - 1) + 0.5))];
+  return { n, meanMs: mean, sdMs: sd, medianAbsMs: q(0.5), p95AbsMs: q(0.95) };
 }
 
 // Versão incremental para reprodução ao vivo: referências e detecções chegam

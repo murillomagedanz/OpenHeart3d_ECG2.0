@@ -10,6 +10,7 @@
     "bench": "node tests/detector-bench.mjs",
     "bench:real": "node tests/detector-real.mjs",
     "fetch-data": "node scripts/fetch-records.mjs",
+    "report": "node tests/validation-report.mjs",
     "pack-vault": "node tools/vault/pack.mjs",
     "unpack-vault": "node tools/vault/unpack.mjs",
     "build-rt": "node tools/vault/build-rt.mjs"

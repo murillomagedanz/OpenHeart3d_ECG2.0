@@ -12,7 +12,7 @@ Os arquivos em `records/<banco>/` são cópias **inalteradas** de registros púb
 | [PTB-XL](https://physionet.org/content/ptb-xl/1.0.3/) | 1.0.3 | 21 799 ECGs de 12 derivações, 10 s, 500 Hz, com diagnósticos SCP-ECG e laudo | CC BY 4.0 | 50 Hz |
 | [LUDB](https://physionet.org/content/ludb/1.0.1/) | 1.0.1 | 200 ECGs de 12 derivações, 10 s, 500 Hz, com **limites e picos de P, QRS e T anotados por derivação** | ODC-BY 1.0 | 50 Hz |
 
-## Registros incluídos no repositório (~2,6 MB)
+## Registros incluídos no repositório (~7 MB)
 
 | Registro | Por quê |
 |---|---|
@@ -22,6 +22,7 @@ Os arquivos em `records/<banco>/` são cópias **inalteradas** de registros púb
 | `ludb/56` | Ritmo sinusal sem alterações, com anotações P/QRS/T |
 | `ludb/8` | Fibrilação atrial, QRS predominantemente negativo em II (caso que revelou o viés de marcação do R) |
 | `mitdb/100` | Registro clássico de validação de detectores: 2273 batimentos anotados em 30 min |
+| `ludb/<id>` (37 a mais) | Amostra estratificada por ritmo (sinusal, bradicardia, taquicardia, arritmia sinusal, FA, flutter, marcapasso) para o relatório de validação ([`reports/`](reports/validation.md)). **Divisão: id par = ajuste, id ímpar = held-out** (limiares de delineação só se ajustam nos pares). Em `fetch-data`, título e rótulos vêm dos comentários do cabeçalho LUDB. ~125 KB cada |
 
 Registros adicionais listados no manifesto mas **não incluídos** (ex.: `mitdb/105`, `mitdb/203`, casos difíceis) são baixados com:
 
