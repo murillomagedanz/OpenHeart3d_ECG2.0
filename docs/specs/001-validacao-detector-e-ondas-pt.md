@@ -108,3 +108,32 @@ As constantes foram comparadas mantendo todo o restante fixo:
 **Resultado:** rejeitar o decaimento simples como alteração do detector. Mesmo o tau 3 s, que mais se aproxima do VPP de referência entre os valores ensaiados, falha o critério piloto já fixado para 228 (FP ≤19). Aplicado aos 101 registros, muda o agregado de 30.418 TP / 582 FP / 435 FN (sens. 0,9859; VPP 0,9812) para 30.815 / 1.319 / 38 (sens. 0,9988; VPP 0,9590). Falha também o limite de regressão de 0,005 absoluto no VPP. Por banco, LUDB muda de 20 para 31 FP (VPP 0,9752 → 0,9623); MIT-BIH, de 562 para 1.288 FP (VPP 0,9814 → 0,9589). O 207 vai de 366 para 482 FP no tau 3 s, e o 108 de 164 para 569. Não adotar, promover nem ocultar essas detecções extras; os intervalos difíceis permanecem no resultado bruto.
 
 Esta comparação rejeita apenas o decaimento exponencial global sem distinção de morfologia/estado, não a possibilidade de adaptação seletiva. A próxima hipótese deve separar candidatas de baixa energia plausíveis de ruído/flutter sem baixar o limiar indiscriminadamente; defini-la e testá-la contra os critérios congelados antes de mexer no caminho de produção.
+
+## 11. Segunda hipótese: limitar a contribuição de complexos de alta energia
+
+**Hipótese:** quando um complexo emitido tem energia maior que `cap × signalLevel`, limitar sua contribuição ao aprendizado do nível de sinal evita a dominância dos V sem decaimento contínuo. O teste altera apenas `maxFeat` usado na atualização em `_emit`; os filtros, abertura/fechamento de candidatas, refratário, search-back e anotação do pico seguem o código de produção. Não se classifica morfologia nem se usa a referência anotada para decidir detecções. A inicialização do detector também permanece intacta.
+
+O piloto foi definido com cap 2, seguido de análise de sensibilidade limitada a 3, 4 e 6 no registro de desenvolvimento 228. Não se combinou essa regra com o decaimento rejeitado. `tests/qrs-capped-level.mjs` implementa a variante somente em testes. O executor compartilhado `tests/qrs-experiment.mjs` repete o controle sem alteração para cada registro e falha explicitamente se suas contagens divergirem do relatório congelado. Reporta todos os registros, latência das emissões pontuadas (não só TP) e critérios calculados sem arredondamento. Uma seleção parcial nunca aprova o piloto. Ambos os executores usam esse protocolo:
+
+```powershell
+node tests\qrs-cap-experiment.mjs 2
+node tests\qrs-cap-experiment.mjs 3 mitdb/228
+node tests\qrs-cap-experiment.mjs 4 mitdb/228
+node tests\qrs-cap-experiment.mjs 6 mitdb/228
+node tests\qrs-decay-experiment.mjs 3
+node --test tests\qrs-cap.test.mjs tests\qrs-trace.test.mjs
+```
+
+| Regra | 228 TP | FP | FN | Critério 228 (FN ≤205; FP ≤19) |
+|---|---:|---:|---:|---|
+| Referência | 1.700 | 9 | 352 | Falha em FN |
+| Cap 2 | 2.044 | 48 | 8 | Falha em FP |
+| Cap 3 | 1.806 | 22 | 246 | Falha em ambos |
+| Cap 4 | 1.765 | 14 | 287 | Falha em FN |
+| Cap 6 | 1.699 | 11 | 353 | Falha em FN |
+
+Cap 2 nos **101 registros**: 30.763 TP / 632 FP / 90 FN, sensibilidade **0,9971** e VPP **0,9799**, contra 30.418 / 582 / 435 (0,9859 / 0,9812). O LUDB mantém exatamente 788 / 20 / 8; MIT-BIH passa a 29.975 / 612 / 82 (0,9973 / 0,9800), dentro do limite agregado de perda de 0,005. No 108, FP sobem de 164 para 167; no 207, de 366 para 373. A latência p95 das emissões no 228 cai de 230,6 para 130,6 ms. Esses ganhos não dispensam o critério por registro: `databasePass=true`, mas `focusPass=false` e **`pilotPass=false`**.
+
+**Conclusão:** rejeitar também esta variante como alteração de produção, preservando-a para comparação. Ela é mais seletiva que o decaimento, mas não é um discriminador de QRS versus T/ruído. Dos 48 FP no 228 (incluindo os preexistentes), 41 ocorrem até 400 ms após o batimento anotado anterior e 11 são emissões por search-back. Isso é uma localização temporal, não prova de que sejam T ou redetecção do QRS. A investigação seguinte deve comparar inclinação, duração e forma nesses FP com N recuperados antes de definir um discriminador; não estender o refratário cegamente, nem adicionar um terceiro ajuste sem evidência.
+
+Nenhuma variante foi promovida ao produto, os escores brutos continuam intactos e não há avaliação independente em registros novos nesta entrega. Mesmo uma aprovação futura do piloto ainda exigirá congelamento dos parâmetros, validação final reservada e testes de streaming, lacunas e custo antes da promoção.

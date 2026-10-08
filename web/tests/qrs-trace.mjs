@@ -45,7 +45,7 @@ export class TraceDetector extends QrsDetector {
 }
 
 export function traceSource(source, {
-  from, to, notchHz = 60, signalDecayTauS = 0, captureSamples = true,
+  from, to, notchHz = 60, signalDecayTauS = 0, captureSamples = true, detectorFactory = null,
 }) {
   if (!Number.isFinite(from) || !Number.isFinite(to) || from < 0 || to <= from || to > source.duration) {
     throw new RangeError('Trace interval must be finite and within the record duration');
@@ -54,7 +54,10 @@ export function traceSource(source, {
     throw new RangeError('Signal decay time constant must be finite and nonnegative');
   }
   const pipeline = new SignalPipeline(source.fs, LEAD_NAMES.length, { notchHz, detectionLead: source.detectionLead });
-  const detector = new TraceDetector(source.fs, from, to, { signalDecayTauS, captureDetails: captureSamples });
+  if (detectorFactory && signalDecayTauS) throw new Error('Cannot combine detector experiments');
+  const detector = detectorFactory
+    ? detectorFactory(source.fs)
+    : new TraceDetector(source.fs, from, to, { signalDecayTauS, captureDetails: captureSamples });
   pipeline.detector = detector;
   const samples = [];
   const events = [];
@@ -73,7 +76,7 @@ export function traceSource(source, {
       candidate: Boolean(detector.candidate), backup: Boolean(detector.backup), rrMean: detector.rrMean,
     });
   }
-  return { samples, events, closed: detector.closed, emitted: detector.emitted };
+  return { samples, events, closed: detector.closed ?? [], emitted: detector.emitted ?? [] };
 }
 
 export async function traceRecord(id, from, to, { signalDecayTauS = 0, captureSamples = true } = {}) {
