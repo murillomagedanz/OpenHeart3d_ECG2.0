@@ -1,7 +1,8 @@
-﻿{
+{
   "name": "openheart3d-ecg-web",
   "version": "0.1.0",
   "private": true,
+  "license": "AGPL-3.0-only",
   "type": "module",
   "description": "ProtÃ³tipo web OpenHeart3D ECG 2.0: 12 derivaÃ§Ãµes + coraÃ§Ã£o 3D sincronizado",
   "scripts": {
