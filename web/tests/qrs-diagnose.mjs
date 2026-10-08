@@ -1,4 +1,4 @@
-// Diagnóstico por evento do detector de QRS (docs/specs/002). Lista, por registro,
+// Diagnóstico por evento do detector de QRS (docs/specs/001). Lista, por registro,
 // os falsos positivos/negativos agrupados em episódios, com o símbolo de batimento
 // e a anotação de ritmo vigentes. Só leitura: não altera o detector nem os relatórios.
 // Uso: node tests/qrs-diagnose.mjs mitdb/207 [mitdb/108 ...]

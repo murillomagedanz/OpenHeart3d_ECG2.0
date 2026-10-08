@@ -11,6 +11,8 @@ Status: implementado · Autor: Eng. Murillo Magedanz (idealização) · Decisõe
 
 Dentro: registros LUDB adicionais (37, total 39) no repositório; extensão aditiva de `scoring.js`; relatório `web/data/reports/validation.{json,md}`; delineador `web/src/ecg/waves.js`; parser das anotações de delineação do LUDB; marcadores P/T **opcionais e apenas visuais** na tira de ritmo; documentação e decisões.
 
+Esse escopo descreve a entrega inicial. Após a ampliação, o relatório QRS versionado inclui **87 LUDB + 14 MIT-BIH = 101 registros**; as contagens e métricas atuais são as de `web/data/reports/validation.json`, não as da entrega inicial.
+
 Fora: diagnóstico ou inferência clínica; ML (etapa 4 segue congelada); alimentar o coração 3D ou os envelopes com P/T (D1: o sinal comanda o modelo, só por eventos de QRS); reamostragem ou imputação; escolha da licença do código (pendente, apenas mencionada).
 
 ## 3. Requisitos
@@ -43,3 +45,36 @@ PR A (registros, métricas, relatório, D15) → PR B sobre A (P/T, UI, D16).
 ## 7. Riscos e limites
 
 Registros LUDB têm 10 s: poucos ciclos por registro, então a estatística por registro é frágil (reportar agregados). Resultado em banco único não generaliza a outros equipamentos. O LUDB é de 500 Hz/50 Hz; MIT-BIH 105/203 permanecem opcionais (não versionados).
+
+## 8. Diagnóstico observacional do QRS no MIT-BIH 228
+
+Esta entrega não altera `detector.js`, filtros, pontuação ou parâmetros. `tests/qrs-trace.mjs` observa o mesmo `SignalPipeline`, preservando os eventos e o tratamento de lacunas. Executar em `web/`:
+
+```powershell
+node tests\qrs-trace.mjs mitdb/228 383.4 495.2 > trace-228.json
+node tests\qrs-trace.mjs mitdb/228 513.2 628.2 > trace-228-second.json
+node --test tests\qrs-trace.test.mjs
+```
+
+O JSON contém amostras brutas/filtradas, MWI (`feat`), limiar cheio e de abertura, níveis de sinal/ruído, RR médio, candidatas fechadas e emissões. O processamento começa no início do registro: recortar antes do detector destruiria o estado adaptativo. A janela informada limita apenas a observação. A análise por batimento usa de −150 a +300 ms e exclui batimentos nas margens sem janela completa; `detectedNearby` é proximidade, não um segundo pareamento oficial. O escore global continua usando `matchBeats`.
+
+**Referência congelada:** agregado QRS 30.418 TP / 582 FP / 435 FN, sensibilidade 0,9859 e VPP 0,9812; registro 228: 1.700 TP / 9 FP / 352 FN. A derivação selecionada é **II ← MLII (canal bruto 0)**. O índice 1 de `FileSource.detectionLead` refere-se às derivações padronizadas, não ao canal bruto V1. A comparação anterior de inclinações em V1 não descrevia a entrada efetiva do detector e não sustenta a rejeição da hipótese de energia insuficiente.
+
+| Janela observada (s) | N anotados | N perdidos | Sem candidata e abaixo do limiar de abertura no máximo MWI | Candidata fraca | V perdidos / anotados |
+|---|---:|---:|---:|---:|---:|
+| 383,4–495,2 | 89 | 88 | 86 | 2 | 0 / 41 |
+| 513,2–628,2 | 108 | 101 | 76 | 25 | 1 / 25 |
+
+Nos N perdidos, o máximo MWI é inferior ao limiar cheio (razão mediana 0,343 e 0,407 nas duas janelas); o máximo ocorre fora do refratário de 220 ms. No trecho 400–410 s, N têm MWI aproximadamente 0,019–0,027 contra limiar 0,087–0,090, enquanto V têm 0,254–0,340. O nível de sinal aprende os complexos de maior energia e não decai entre emissões; N abaixo do limiar de abertura não viram reserva. Nos N que geram candidata fraca, o search-back depende do RR já inflado pelos N omitidos; a emissão do V seguinte limpa a reserva. A candidata fraca do N anotado em 554,458 s é descartada na emissão em 555,197 s do V anotado em 555,097 s (pico estimado 555,089 s). Isso identifica o mecanismo de perda no detector atual, não uma solução clinicamente validada.
+
+**Correção de interpretação:** concentração de FP do 207 em flutter ventricular é evidência de conflito de avaliabilidade, não prova de que todas as detecções estejam corretas. No 108, ruído anotado tampouco elimina FP automaticamente. Manter os escores brutos e só adicionar estratos de avaliabilidade após definir a semântica/intervalos das anotações; não excluir `!`, `x` ou `~` isoladamente para melhorar métricas.
+
+## 9. Protocolo da próxima comparação
+
+1. Preservar a referência acima e os relatórios brutos; tratar LUDB ímpar e MIT-BIH já inspecionados como regressão, não validação independente.
+2. Comparar uma hipótese por vez: primeiro adaptação do nível de sinal entre emissões; depois abertura/reserva de candidatas; finalmente search-back sensível a alternância de energia. Não reduzir globalmente o limiar antes de medir os FP.
+3. Usar os pares do LUDB para ajuste geral; o 228 é um caso de desenvolvimento já conhecido. Registrar parâmetros e resultados de cada experimento, inclusive falhas.
+4. Fixar o filtro de promoção do piloto antes dos experimentos: 228 com FN ≤ 205 (sensibilidade ≥ 0,90) e FP ≤ 19; sensibilidade e VPP de cada banco sem perda superior a 0,005 absoluta frente à referência; publicar também resultados por registro para não esconder regressões.
+5. Exigir testes sintéticos de alternância de energia, ruído e T proeminente, equivalência streaming/lote, lacunas, latência e custo. Os critérios do piloto não substituem validação clínica.
+6. Reservar registros novos, não inspecionados, antes de escolher uma alternativa; congelar parâmetros antes dessa avaliação final. Não promover o piloto apenas por melhorar o 228.
+7. Investigar P/T em etapa separada com R detectado versus anotado, sem alimentar o 3D. Só abrir a entrega de alteração do detector após evidência comparativa e CI verde; merge requer confirmação dos checks.
