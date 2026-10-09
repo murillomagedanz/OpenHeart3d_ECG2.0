@@ -73,6 +73,8 @@ function buildPipeline(fs) {
   latestExportMetadata = null;
   spectrumExport.setDataset(null);
   state.signalIndex = -1;
+  // Arquivos reiniciam; notch sintético mantém a fonte na próxima amostra.
+  state.signalTime = state.mode === 'file' ? state.source.position : state.source.t;
   lastSpectrumVersion = -1;
   lastSpectrumAt = 0;
   heart.reset();
@@ -274,7 +276,7 @@ function renderRecordInfo(record, src, meta) {
   } else if (meta.annotations) {
     rows.push(row('Anotações', `${meta.annotations} foi lido, mas nenhum batimento foi reconhecido (${record.annotations.length} anotações) — sem referência para pontuar`));
   } else rows.push(row('Anotações', 'nenhuma anotação de batimento — sem referência para pontuar o detector'));
-  const ck = record.checksums.map((ok, i) => `${h.signals[i].description || i}:${ok === null ? '—' : ok ? 'ok' : 'FALHA'}`).join(' ');
+  const ck = record.checksums.map((ok, i) => `${h.signals[i].description || i}:${ok === null ? 'não declarado (não verificado)' : ok ? 'ok' : 'FALHA'}`).join(' ');
   rows.push(row('Checksum WFDB', ck));
   if (record.missingTotal) {
     rows.push(row('Amostras ausentes', `${record.missingTotal} (sentinelas WFDB de amostra inválida) — aparecem como vãos no traçado; filtros e detector não avançam nelas e são re-armados quando o sinal volta`));

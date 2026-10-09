@@ -1,0 +1,263 @@
+{
+  "schema": "openheart3d.ecg.operational-functional-current",
+  "version": 3,
+  "protocol": "B04 v1 + bounded F08 correction v2 + bounded F01 correction v3",
+  "historicalBaseline": "docs/base/11-resultados-robustez-custo.functional.json (frozen v1; not overwritten)",
+  "execution": "Node/VM only; deterministic assertions and observed behavior. No browser, WebGL, network, key access, or private asset access.",
+  "command": "node tests/operational-functional.mjs",
+  "cases": [
+    {
+      "id": "F01",
+      "status": "passed",
+      "evidence": {
+        "validBundledFixture": {
+          "id": "ludb/8",
+          "samples": 5000,
+          "allSignalChecksumsPass": true
+        },
+        "validSyntheticFixtureSamples": 2,
+        "missingFile": {
+          "throws": true,
+          "message": "Arquivo de sinal ausente: fixture.dat"
+        },
+        "truncatedDeclaredSamples": 4,
+        "truncatedReturnedSamples": null,
+        "truncatedThrows": true,
+        "truncatedError": "Arquivo WFDB truncado: fixture.dat; cabeçalho declara 4 amostras, disponíveis 2",
+        "observation": "The decoder rejects a signal file that cannot supply the sample count declared by the header; format/layout and record-length regression cases also cover all supported formats."
+      },
+      "sourceFiles": [
+        "web/src/io/wfdb.js",
+        "web/src/io/fileSource.js",
+        "web/tests/wfdb.test.mjs"
+      ],
+      "limit": "Declared-length truncation is rejected. Undeclared sample counts are inferred only when all signal files agree on complete frames."
+    },
+    {
+      "id": "F02",
+      "status": "failed",
+      "evidence": {
+        "checksumExpectedMismatchFlag": false,
+        "unit": {
+          "declared": "mmHg",
+          "scaleToMv": 1,
+          "known": false
+        },
+        "pipelineStepReturnedFiniteFilteredData": true,
+        "observation": "The checksum-false / unknown-mmHg record is still accepted by FileSource and SignalPipeline; the unit factor remains 1 (not mV). This is the documented P0 integrity/scale gap."
+      },
+      "sourceFiles": [
+        "web/src/io/wfdb.js",
+        "web/src/io/fileSource.js",
+        "web/src/ecg/pipeline.js",
+        "web/tests/wfdb.test.mjs"
+      ],
+      "limit": "Observed continuation is not treated as acceptable integrity or calibration behavior."
+    },
+    {
+      "id": "F03",
+      "status": "passed",
+      "evidence": {
+        "noIIRecognizedLead": {
+          "detectionLead": "V1",
+          "available": 2
+        },
+        "whollyUnknownChannels": {
+          "detectionLead": "I",
+          "alias": "ECG1",
+          "available": 2
+        },
+        "zeroIsNotReportedAsAValidLead": true
+      },
+      "sourceFiles": [
+        "web/src/io/fileSource.js",
+        "web/tests/wfdb.test.mjs"
+      ],
+      "limit": null
+    },
+    {
+      "id": "F04",
+      "status": "passed",
+      "evidence": {
+        "gapSeconds": [
+          15,
+          18
+        ],
+        "offsetAtResumeMv": 1.5,
+        "eventsInGap": 0,
+        "falseEventsFirst300msAfterResume": 0,
+        "rrCrossesGap": false,
+        "preservesGapMask": true
+      },
+      "sourceFiles": [
+        "web/src/ecg/pipeline.js",
+        "web/src/io/fileSource.js",
+        "web/tests/gaps.test.mjs"
+      ],
+      "limit": null
+    },
+    {
+      "id": "F05",
+      "status": "passed",
+      "evidence": {
+        "gappedLead": "I",
+        "maskedSamplesOnLeadI": 1500,
+        "expectedMaskedSamples": 1500,
+        "detectionLead": "II",
+        "stepBatchEventStreamSameAsNoGap": true,
+        "eventSha256": "55221189fe7bbbe6a122735986e59255216a0063bd09a1fee6460345cdde9576"
+      },
+      "sourceFiles": [
+        "web/src/io/fileSource.js",
+        "web/src/ecg/pipeline.js",
+        "web/tests/gaps.test.mjs"
+      ],
+      "limit": null
+    },
+    {
+      "id": "F06",
+      "status": "passed",
+      "evidence": {
+        "samples": 5000,
+        "fullyFiniteFilteredSteps": 5000,
+        "maskedSamples": 0,
+        "events": 11,
+        "stepEventSha256": "ef8eddde648d40a3dd43d186dd618b92adeb2e4173dc96d1ac3247f809f48fb8",
+        "batchEventSha256": "ef8eddde648d40a3dd43d186dd618b92adeb2e4173dc96d1ac3247f809f48fb8",
+        "eventStreamsIdentical": true
+      },
+      "sourceFiles": [
+        "web/src/ecg/pipeline.js",
+        "web/tests/gaps.test.mjs"
+      ],
+      "limit": null
+    },
+    {
+      "id": "F07",
+      "status": "partial",
+      "evidence": {
+        "nodeVmControlTests": "A 2 s pause/resume and 0.5x/1x/2x signal-sample cadence are exercised by the targeted VM test.",
+        "browserRuntime": "not measured; this execution is Node/VM only."
+      },
+      "sourceFiles": [
+        "web/src/main.js",
+        "web/tests/operational-baseline.test.mjs",
+        "web/tests/source-controls.test.mjs"
+      ],
+      "limit": "VM assertions do not prove real requestAnimationFrame timing or browser rendering."
+    },
+    {
+      "id": "F08",
+      "status": "partial",
+      "evidence": {
+        "nodeVmControlTests": "Synthetic/LUDB 8/MIT-BIH 100 transitions and notch 50/60/0 context resets are exercised by the targeted VM test.",
+        "expectedBehaviorVersion": 2,
+        "oldSignalTimeSeconds": 3.998,
+        "signalTimeResetOnPipelineRebuild": true,
+        "newContextFrameReceivedOldSignalTime": false,
+        "fileNotchResets": [
+          {
+            "notchHz": 60,
+            "sourcePositionSeconds": 0,
+            "signalTimeSeconds": 0,
+            "heartTimeSeconds": 0,
+            "signalIndex": -1
+          },
+          {
+            "notchHz": 0,
+            "sourcePositionSeconds": 0,
+            "signalTimeSeconds": 0,
+            "heartTimeSeconds": 0,
+            "signalIndex": -1
+          },
+          {
+            "notchHz": 50,
+            "sourcePositionSeconds": 0,
+            "signalTimeSeconds": 0,
+            "heartTimeSeconds": 0,
+            "signalIndex": -1
+          }
+        ],
+        "switchedFile": {
+          "fs": 360,
+          "aliasII": "MLII",
+          "sourcePositionSeconds": 0,
+          "signalTimeSeconds": 0,
+          "heartTimeSeconds": 0
+        },
+        "freshSyntheticTimeSeconds": 0,
+        "continuingSynthetic": {
+          "sourcePreserved": true,
+          "sourcePositionSeconds": 3.999999999999781,
+          "signalTimeSeconds": 3.999999999999781,
+          "heartTimeSeconds": 3.999999999999781,
+          "resetDidNotTriggerQrs": true
+        },
+        "nodeVmStatus": "passed",
+        "realRecordFixtures": [
+          "ludb/8",
+          "mitdb/100"
+        ],
+        "browserRuntime": "not measured."
+      },
+      "sourceFiles": [
+        "web/src/main.js",
+        "web/src/io/fileSource.js",
+        "web/tests/operational-baseline.test.mjs"
+      ],
+      "limit": "Current VM evidence checks the corrected clock before any new sample, including a continuing synthetic source. Browser/WebGL remains unmeasured; the frozen v1 baseline is historical, not reproduced by this generator."
+    },
+    {
+      "id": "F09",
+      "status": "partial",
+      "evidence": {
+        "nodeVmEvidence": "The existing spectrum-export VM tests cover 10 s readiness, invalidation on gaps, safe export metadata and no fabricated final T.",
+        "pTAndStftTests": [
+          "web/tests/waves.test.mjs",
+          "web/tests/spectrum.test.mjs",
+          "web/tests/spectrum-export.test.mjs"
+        ],
+        "browserRuntime": "not measured."
+      },
+      "sourceFiles": [
+        "web/src/ecg/waves.js",
+        "web/src/ecg/spectrum.js",
+        "web/src/io/spectrumExport.js",
+        "web/tests/spectrum-export.test.mjs"
+      ],
+      "limit": "No visual browser verification or real WebGL runtime."
+    },
+    {
+      "id": "F10",
+      "status": "partial",
+      "evidence": {
+        "proceduralDefault": "Node/VM initialization selects the procedural fallback.",
+        "optionalAsset": "key not available to this run; no key lookup, asset fetch, decryption or private-content access attempted.",
+        "browserRuntime": "not measured."
+      },
+      "sourceFiles": [
+        "web/src/main.js",
+        "web/src/view/assetVault.js",
+        "web/tests/asset-discovery.test.mjs"
+      ],
+      "limit": "Asset availability and visual fallback were not inspected in a browser."
+    },
+    {
+      "id": "F11",
+      "status": "partial",
+      "evidence": {
+        "nodeLongSignalRuns": "The four 30-minute signal workloads are exercised by the separate Node cost runner.",
+        "nodeVmResetCycles": "100 source/pipeline resets are exercised by the targeted VM test.",
+        "browserRuntime": "not measured; no browser session or rendered-resource lifecycle was observed."
+      },
+      "sourceFiles": [
+        "web/src/main.js",
+        "web/src/ecg/pipeline.js",
+        "web/tests/operational-baseline.test.mjs"
+      ],
+      "limit": "Node/VM evidence is not a browser memory-leak or WebGL resource-lifecycle conclusion."
+    }
+  ],
+  "globalStatus": "partial",
+  "globalLimit": "F01 declared-length truncation is rejected in Node/VM and supported WFDB-format fixtures; this does not define policy for checksum mismatches or unknown units (F02). F08 clock normalization is checked in the current VM; F07-F11 remain runtime-partial because browser/WebGL was not measured. This bounded exception does not complete B04, global B05 or B06."
+}
