@@ -7,7 +7,7 @@ import { SignalPipeline, detectAll } from '../src/ecg/pipeline.js';
 import { SyntheticSource } from '../src/ecg/synth.js';
 import { LEAD_NAMES } from '../src/ecg/leads.js';
 import { FileSource, mapSignalsToLeads } from '../src/io/fileSource.js';
-import { loadRecord } from '../src/io/wfdb.js';
+import { decodeSignals, loadRecord, parseHeader, verifyChecksums } from '../src/io/wfdb.js';
 import { readLocalRecord } from './validation-report.mjs';
 import { virtualApp } from './operational-app.mjs';
 
@@ -102,20 +102,34 @@ export async function buildFunctionalReport() {
     throw new Error('WFDB valid/truncated/missing reproduction changed unexpectedly');
   }
 
-  const permissiveHeader = 'fixture 1 500 2\nfixture.dat 16 100(0)/mmHg 16 0 100 1 0 II';
-  const permissiveRecord = loadRecord({
-    headerText: permissiveHeader,
+  const badChecksumHeader = 'fixture 1 500 2\nfixture.dat 16 100(0)/mV 16 0 100 201 0 II';
+  const badChecksumFiles = { 'fixture.dat': arrayBuffer(new Int16Array([100, 100])) };
+  const badChecksumDecoded = decodeSignals(parseHeader(badChecksumHeader), badChecksumFiles);
+  const badChecksumStatus = verifyChecksums(parseHeader(badChecksumHeader), badChecksumDecoded.storedChecksums)[0];
+  let badChecksumError = null;
+  try {
+    loadRecord({ headerText: badChecksumHeader, files: badChecksumFiles });
+  } catch (error) {
+    badChecksumError = error.message;
+  }
+  const unknownUnitHeader = 'fixture 1 500 2\nfixture.dat 16 100(0)/mmHg 16 0 100 200 0 II';
+  const unknownUnitFiles = { 'fixture.dat': arrayBuffer(new Int16Array([100, 100])) };
+  const unknownUnitDecoded = decodeSignals(parseHeader(unknownUnitHeader), unknownUnitFiles);
+  const absentChecksumRecord = loadRecord({
+    headerText: 'fixture 1 500 2\nfixture.dat 16 100(0)/mV 16 0 100',
     files: { 'fixture.dat': arrayBuffer(new Int16Array([100, 100])) },
   });
-  const permissiveSource = new FileSource(permissiveRecord);
-  const permissivePipeline = new SignalPipeline(500, LEAD_NAMES.length, {
-    notchHz: 50,
-    detectionLead: permissiveSource.detectionLead,
-  });
-  const permissiveStep = permissivePipeline.step(permissiveSource.next());
-  if (permissiveRecord.checksums[0] !== false || permissiveRecord.units[0].known
-    || !permissiveStep.filtered.every(Number.isFinite)) {
-    throw new Error('Permissive checksum/unit behavior no longer matches the observed path');
+  let unknownUnitError = null;
+  try {
+    loadRecord({ headerText: unknownUnitHeader, files: unknownUnitFiles });
+  } catch (error) {
+    unknownUnitError = error.message;
+  }
+  if (badChecksumStatus !== false || !badChecksumError?.includes('Checksum WFDB divergente')
+    || unknownUnitDecoded.units[0].known || Number.isFinite(unknownUnitDecoded.physical[0][0])
+    || !unknownUnitError?.includes('Unidade WFDB desconhecida')
+    || absentChecksumRecord.checksums[0] !== null) {
+    throw new Error('WFDB checksum/unit rejection policy changed unexpectedly');
   }
 
   const leadFallback = mapSignalsToLeads(['V1', 'V5']);
@@ -228,13 +242,13 @@ export async function buildFunctionalReport() {
       observation: 'The decoder rejects a signal file that cannot supply the sample count declared by the header; format/layout and record-length regression cases also cover all supported formats.',
     }, ['web/src/io/wfdb.js', 'web/src/io/fileSource.js', 'web/tests/wfdb.test.mjs'],
     'Declared-length truncation is rejected. Undeclared sample counts are inferred only when all signal files agree on complete frames.'),
-    caseResult('F02', 'failed', {
-      checksumExpectedMismatchFlag: permissiveRecord.checksums[0],
-      unit: permissiveRecord.units[0],
-      pipelineStepReturnedFiniteFilteredData: permissiveStep.filtered.every(Number.isFinite),
-      observation: 'The checksum-false / unknown-mmHg record is still accepted by FileSource and SignalPipeline; the unit factor remains 1 (not mV). This is the documented P0 integrity/scale gap.',
-    }, ['web/src/io/wfdb.js', 'web/src/io/fileSource.js', 'web/src/ecg/pipeline.js', 'web/tests/wfdb.test.mjs'],
-    'Observed continuation is not treated as acceptable integrity or calibration behavior.'),
+    caseResult('F02', 'passed', {
+      declaredChecksumMismatch: { detected: badChecksumStatus === false, recordLoadRejected: true, error: badChecksumError },
+      declaredUnknownUnit: { unit: unknownUnitDecoded.units[0], recordLoadRejected: true, error: unknownUnitError },
+      absentChecksumAllowed: absentChecksumRecord.checksums[0] === null,
+      observation: 'loadRecord rejects any declared checksum mismatch and every signal with an unknown physical unit. A missing checksum remains optional; raw decodeSignals remains available for explicit diagnostics.',
+    }, ['web/src/io/wfdb.js', 'web/tests/wfdb.test.mjs', 'web/tests/operational-baseline.test.mjs'],
+    'WFDB metadata is not cryptographic provenance; records with absent checksums are loadable but have no checksum verification.'),
     caseResult('F03', 'passed', {
       noIIRecognizedLead: { detectionLead: LEAD_NAMES[leadFallback.detectionLead], available: leadFallback.available.filter(Boolean).length },
       whollyUnknownChannels: { detectionLead: LEAD_NAMES[genericFallback.detectionLead], alias: genericFallback.aliases.I, available: genericFallback.available.filter(Boolean).length },
@@ -307,14 +321,14 @@ export async function buildFunctionalReport() {
 
   return {
     schema: 'openheart3d.ecg.operational-functional-current',
-    version: 3,
-    protocol: 'B04 v1 + bounded F08 correction v2 + bounded F01 correction v3',
+    version: 4,
+    protocol: 'B04 v1 + bounded F08 correction v2 + bounded F01 correction v3 + bounded F02 correction v4',
     historicalBaseline: 'docs/base/11-resultados-robustez-custo.functional.json (frozen v1; not overwritten)',
     execution: 'Node/VM only; deterministic assertions and observed behavior. No browser, WebGL, network, key access, or private asset access.',
     command: 'node tests/operational-functional.mjs',
     cases,
     globalStatus: 'partial',
-    globalLimit: 'F01 declared-length truncation is rejected in Node/VM and supported WFDB-format fixtures; this does not define policy for checksum mismatches or unknown units (F02). F08 clock normalization is checked in the current VM; F07-F11 remain runtime-partial because browser/WebGL was not measured. This bounded exception does not complete B04, global B05 or B06.',
+    globalLimit: 'F01/F02 reject truncated declared payloads, declared checksum mismatches, and unknown physical units in Node/VM; absent checksums remain optional and are not evidence of integrity. F08 clock normalization is also checked in VM; F07-F11 remain runtime-partial because browser/WebGL was not measured. These bounded exceptions do not complete B04, global B05 or B06.',
   };
 }
 
@@ -324,8 +338,8 @@ function mainRequested() {
 
 if (mainRequested()) {
   const report = await buildFunctionalReport();
-  const output = path.join(repoRoot, 'docs', 'base', '13-integridade-comprimento-wfdb.functional.json');
+  const output = path.join(repoRoot, 'docs', 'base', '14-integridade-calibracao-wfdb.functional.json');
   await mkdir(path.dirname(output), { recursive: true });
   await writeFile(output, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
-  console.log(JSON.stringify({ output: 'docs/base/13-integridade-comprimento-wfdb.functional.json', version: report.version, cases: report.cases.length, globalStatus: report.globalStatus }, null, 2));
+  console.log(JSON.stringify({ output: 'docs/base/14-integridade-calibracao-wfdb.functional.json', version: report.version, cases: report.cases.length, globalStatus: report.globalStatus }, null, 2));
 }

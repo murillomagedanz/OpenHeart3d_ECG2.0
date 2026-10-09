@@ -71,7 +71,7 @@ test('parseHeader: rejeita multi-segmento e formatos desconhecidos', () => {
 
 function lengthHeader(format, count, channels = 1, offset = 0) {
   return [`fixture ${channels} 500${count === null ? '' : ` ${count}`}`,
-    ...Array.from({ length: channels }, (_, i) => `fixture.dat ${format}+${offset} 200 16 0 0 0 0 channel${i}`)].join('\n');
+    ...Array.from({ length: channels }, () => `fixture.dat ${format}+${offset} 200 16 0 0`)].join('\n');
 }
 
 for (const [format, bytesPerFour] of [[16, 8], [24, 12], [32, 16], [61, 8], [80, 4], [160, 8], [212, 6]]) {
@@ -179,7 +179,7 @@ test('decodeSignals: aplica skew por sinal, marca cauda ausente e confere o chec
 });
 
 test('decodeSignals/FileSource: sentinela formato 16 vira NaN e playback faz sample-and-hold', () => {
-  const headerText = 'r 1 500 3\nr.dat 16 100(0)/mV 16 0 100 0 0 I';
+  const headerText = 'r 1 500 3\nr.dat 16 100(0)/mV 16 0 100 32988 0 I';
   const v = new Int16Array([100, -32768, 120]);
   const rec = loadRecord({ headerText, files: { 'r.dat': v.buffer } });
   assert.deepEqual(Array.from(rec.adc[0]), [100, -32768, 120]);
@@ -230,12 +230,33 @@ test('decodeSignals: unidades uV e V são convertidas para mV; unidade desconhec
   assert.ok(Math.abs(physical[0][0] - 1) < 1e-6, 'mV: 1000/1000 = 1 mV');
   assert.ok(Math.abs(physical[1][0] - 0.001) < 1e-9, 'uV: 1 uV = 0,001 mV');
   assert.ok(Math.abs(physical[2][0] - 1000) < 1e-3, 'V: 1 V = 1000 mV');
-  assert.ok(Math.abs(physical[3][0] - 1) < 1e-6, 'desconhecida: valor declarado, sem fator');
+  assert.ok(Number.isNaN(physical[3][0]), 'desconhecida: sem escala física válida');
   assert.deepEqual(units.map((u) => u.known), [true, true, true, false]);
-  assert.deepEqual(units.map((u) => u.scaleToMv), [1, 1e-3, 1e3, 1]);
+  assert.deepEqual(units.map((u) => u.scaleToMv), [1, 1e-3, 1e3, null]);
   assert.equal(unitsToMv('µV'), 1e-3);
   assert.equal(unitsToMv(undefined), 1);
   assert.equal(unitsToMv('adu'), null);
+});
+
+test('loadRecord: checksum divergente declarado rejeita o registro, checksum ausente continua opcional', () => {
+  const files = { 'r.dat': new Int16Array([100, 100]).buffer };
+  const mismatch = 'r 1 500 2\nr.dat 16 100(0)/mV 16 0 100 201 0 II';
+  assert.throws(() => loadRecord({ headerText: mismatch, files }), /checksum WFDB.*II.*esperado 201.*calculado 200/i);
+
+  const absent = 'r 1 500 2\nr.dat 16 100(0)/mV 16 0 100';
+  const record = loadRecord({ headerText: absent, files });
+  assert.deepEqual(record.checksums, [null]);
+  assert.deepEqual(record.units, [{ declared: 'mV', scaleToMv: 1, known: true }]);
+});
+
+test('loadRecord: rejeita unidades desconhecidas sem impedir inspeção bruta via decodeSignals', () => {
+  const headerText = 'r 1 500 1\nr.dat 16 100(0)/mmHg 16 0 100 100 0 II';
+  const files = { 'r.dat': new Int16Array([100]).buffer };
+  const decoded = decodeSignals(parseHeader(headerText), files);
+  assert.equal(decoded.units[0].known, false);
+  assert.ok(Number.isNaN(decoded.physical[0][0]));
+  assert.deepEqual(verifyChecksums(parseHeader(headerText), decoded.storedChecksums), [true]);
+  assert.throws(() => loadRecord({ headerText, files }), /unidade WFDB desconhecida.*mmHg.*II/i);
 });
 
 test('parseAnnotations: SKIP, AUX, NUM/CHN e terminador', () => {

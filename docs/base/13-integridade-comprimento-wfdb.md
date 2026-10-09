@@ -16,8 +16,10 @@ Os testes também asseguram o comprimento mínimo do offset, compatibilidade de 
 - A mudança afeta somente a integridade de comprimento durante a leitura WFDB. Não altera checksum, conversão ou política de unidade, escalas, filtros, detector, anotações, dados ou ativos 3D.
 - Na interface, uma carga truncada informa o erro e preserva a fonte/pipeline ativos; não troca silenciosamente para um registro parcial.
 - A evidência v3 cobre fixtures dos formatos suportados, registros locais já incluídos e carregamento da aplicação em VM. Não constitui validação em browser/WebGL, teste clínico, validação de todas as variantes externas do WFDB nem verificação de proveniência.
-- F02 permanece aberto: divergência de checksum e unidade desconhecida ainda podem ser aceitas pelo fluxo. Essa política exige critérios próprios e não foi ampliada por esta correção.
+- Na entrega original F01, F02 ainda permanecia aberto; seu tratamento posterior está registrado separadamente em [14 — integridade e escala WFDB](14-integridade-calibracao-wfdb.md).
 - B04 permanece incompleto até o braço de navegador; B05 global e B06 não são declarados concluídos.
+
+**Seguimento:** a política separada para checksum declarado e unidade desconhecida foi definida e implementada em [14 — integridade e escala WFDB](14-integridade-calibracao-wfdb.md). Esta entrega F01 continua restrita à validação de comprimento e permanece preservada como registro da mudança anterior.
 
 ## Reprodução
 

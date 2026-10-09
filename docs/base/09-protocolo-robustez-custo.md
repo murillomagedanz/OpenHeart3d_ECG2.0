@@ -3,7 +3,7 @@
 **Data:** 2026-10-08. **Estado:** protocolo v1 congelado; Node/VM executado; navegador/WebGL e budgets de produto pendentes. Resultados: [funcionais](11-resultados-robustez-custo.functional.json), [custo](11-resultados-robustez-custo.cost.json) e [interpretação](11-resultados-robustez-custo.md).
 **Vínculos:** [diretor](../specs/002-consolidacao-base-ecg-3d.md), [fundamento](03-robustez-eficiencia.md), [diagnóstico B01](06-diagnostico-arquitetura.md).
 
-**Seguimento delimitado:** [correção F08 e evidência atual v2](12-correcao-relogio-reset.md). A matriz/protocolo v1 e os JSONs **11** permanecem congelados; a exceção de reset não conclui navegador/B04, B05 global ou B06.
+**Seguimentos delimitados:** [correção F08 e evidência v2](12-correcao-relogio-reset.md), [correção F01 de comprimento WFDB](13-integridade-comprimento-wfdb.md) e [política F02 de checksum/unidade e evidência v4](14-integridade-calibracao-wfdb.md). A matriz/protocolo v1 e os JSONs **11** permanecem congelados; as exceções específicas não concluem navegador/B04, B05 global ou B06.
 
 ## 1. Objetivo e separação dos braços
 

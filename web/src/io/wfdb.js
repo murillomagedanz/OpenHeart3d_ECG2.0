@@ -196,8 +196,7 @@ export function decodeSignals(header, files) {
   const storedChecksums = new Array(header.nSig).fill(null);
   const units = header.signals.map((s) => {
     const scale = unitsToMv(s.units);
-    // Unidade desconhecida (ex.: mmHg, NU): mantém o valor declarado e avisa; não é tensão.
-    return { declared: s.units, scaleToMv: scale ?? 1, known: scale !== null };
+    return { declared: s.units, scaleToMv: scale, known: scale !== null };
   });
 
   const groups = [];
@@ -233,7 +232,7 @@ export function decodeSignals(header, files) {
     idxs.forEach((sigIdx, k) => {
       const s = header.signals[sigIdx];
       const sentinel = invalidSampleValue(s.format);
-      const scale = units[sigIdx].scaleToMv / s.gain;
+      const scale = units[sigIdx].known ? units[sigIdx].scaleToMv / s.gain : null;
       const raw = new Int32Array(n);
       const phys = new Float32Array(n);
       // O checksum do cabeçalho cobre as amostras COMO ARMAZENADAS no arquivo
@@ -250,7 +249,7 @@ export function decodeSignals(header, files) {
           phys[j] = NaN;
           missing[sigIdx]++;
         } else {
-          phys[j] = (v - s.baseline) * scale;
+          phys[j] = scale === null ? NaN : (v - s.baseline) * scale;
         }
       }
       adc[sigIdx] = raw;
@@ -332,6 +331,18 @@ export function loadRecord({ headerText, files, annotations = null }) {
   const header = parseHeader(headerText);
   const { physical, adc, missing, units, storedChecksums } = decodeSignals(header, files);
   const checksums = verifyChecksums(header, storedChecksums);
+  const checksumFailure = checksums.findIndex((valid) => valid === false);
+  if (checksumFailure !== -1) {
+    const signal = header.signals[checksumFailure];
+    const expected = signal.checksum & 0xffff;
+    const actual = storedChecksums[checksumFailure] & 0xffff;
+    throw new Error(`Checksum WFDB divergente no sinal ${signal.description || checksumFailure}: esperado ${expected}, calculado ${actual}`);
+  }
+  const unknownUnit = units.findIndex((unit) => !unit.known);
+  if (unknownUnit !== -1) {
+    const signal = header.signals[unknownUnit];
+    throw new Error(`Unidade WFDB desconhecida "${units[unknownUnit].declared}" no sinal ${signal.description || unknownUnit}; conversão para mV impossível`);
+  }
   const anns = annotations ? parseAnnotations(annotations) : [];
   const beats = anns.filter((a) => BEAT_SYMBOLS.has(a.symbol)).map((a) => a.sample);
   const nSamples = physical[0] ? physical[0].length : 0;

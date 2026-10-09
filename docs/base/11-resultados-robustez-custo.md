@@ -5,7 +5,7 @@
 
 B04 foi executado sem alterar produção, algoritmos, limiares, dependências ou dados. A entrega fecha somente a medição Node e os testes de controles em VM: não fecha B04 em navegador, não fecha B06 e não certifica eficiência. Nenhum budget de produto foi definido.
 
-**Seguimento posterior:** [12 — correção delimitada F08](12-correcao-relogio-reset.md) e [13 — integridade de comprimento WFDB](13-integridade-comprimento-wfdb.md) documentam exceções e regressões específicas. Este documento e seus JSONs **11** continuam baseline histórico anterior às correções. O gerador funcional atual é v3 e escreve [evidência 13](13-integridade-comprimento-wfdb.functional.json); executar hoje o comando funcional abaixo não reproduz nem sobrescreve o snapshot v1 nem a evidência v2 da correção F08.
+**Seguimento posterior:** [12 — correção delimitada F08](12-correcao-relogio-reset.md), [13 — integridade de comprimento WFDB](13-integridade-comprimento-wfdb.md) e [14 — integridade e escala WFDB](14-integridade-calibracao-wfdb.md) documentam exceções específicas e evidências correntes. Este documento e seus JSONs **11** continuam baseline histórico anterior às correções. O gerador funcional atual é v4 e escreve [evidência 14](14-integridade-calibracao-wfdb.functional.json); executar hoje o comando funcional abaixo não reproduz nem sobrescreve o snapshot v1 nem as evidências v2/v3.
 
 **Seguimento F01:** a aceitação de prefixos WFDB truncados foi corrigida separadamente em [13 — integridade de comprimento](13-integridade-comprimento-wfdb.md), com evidência corrente v3. Os resultados e JSONs desta página continuam registrando corretamente o baseline histórico anterior às correções.
 

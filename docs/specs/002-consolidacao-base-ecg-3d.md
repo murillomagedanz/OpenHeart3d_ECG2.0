@@ -1,6 +1,6 @@
 # SDD 002 — Consolidação da base ECG e preparação multimodal
 
-**Data:** 2026-10-08. **Estado atual:** B01/B02 e B03 entregues; B04 Node/VM medido, navegador pendente; correções delimitadas F08 e F01 entregues, B05 global e aceite B06 pendentes.
+**Data:** 2026-10-08. **Estado atual:** B01/B02 e B03 entregues; B04 Node/VM medido, navegador pendente; correções delimitadas F08, F01 e F02 entregues, B05 global e aceite B06 pendentes.
 
 ## 1. Objetivo e decisão
 
@@ -109,7 +109,7 @@ Para não bloquear uma correção determinística já reproduzida pelo impedimen
 
 `buildPipeline` agora sincroniza `state.signalTime` com a posição da fonte antes de qualquer nova amostra: arquivo reiniciado usa posição zero; mudança de notch sintético conserva a posição corrente do gerador. Testes cobrem troca pausada, reinício, EOF, continuação sintética e ausência de QRS artificial no reset. Filtros, detector e dados continuam inalterados.
 
-F08 passa em VM, não no navegador ainda não aferido. Validação: 259 testes e benchmarks existentes aprovados. Não há autorização de B05 global/B06: F01/F02, navegador e budgets continuam pendentes. Esta exceção não generaliza permissões para alterar política de integridade ou unidades sem definição própria.
+F08 passa em VM, não no navegador ainda não aferido. Validação daquele corte: 259 testes e benchmarks existentes aprovados. Naquele momento não havia autorização para B05 global/B06: F01/F02, navegador e budgets permaneciam pendentes. Esta exceção não generalizou permissões para alterar política de integridade ou unidades sem definição própria.
 
 ## 11. Exceção delimitada: integridade de comprimento WFDB (F01)
 
@@ -118,3 +118,9 @@ Após a investigação do navegador permanecer bloqueada, foi corrigida a aceita
 Foram preservados contagem ausente/zero (inferência por quadros completos), bytes excedentes além da contagem declarada e o armazenamento de amostra final ímpar no formato 212. Layouts incompatíveis de sinais que compartilham um arquivo e offsets além do arquivo são rejeitados. Testes exercitam os sete formatos atualmente suportados, arquivos compartilhados/separados, offsets e a retenção do estado da fonte ativa no erro de carga local/remota. Não foram alterados checksums, política para unidade desconhecida (F02), escalas, filtros, detector, dados ou experiência visual de navegador.
 
 O relatório funcional corrente v3 foi separado da evidência histórica: [documentação F01](../base/13-integridade-comprimento-wfdb.md) e [JSON determinístico](../base/13-integridade-comprimento-wfdb.functional.json). F01 passa nos ensaios Node/VM descritos; isso não encerra B04, não trata F02 e não substitui validação real no navegador. B05 global e B06 permanecem pendentes.
+
+## 12. Exceção delimitada: integridade e escala WFDB (F02)
+
+Foi congelada e aplicada uma política mínima para os dados que entram no pipeline ECG: qualquer checksum explicitamente declarado que diverge do sinal decodificado rejeita o registro; checksum ausente continua opcional e é distinto de checksum inválido; unidade física declarada que o sistema não converte para mV rejeita o registro antes da criação da fonte/pipeline. A unidade WFDB ausente continua usando o padrão mV adotado pelo parser. `decodeSignals` e `verifyChecksums` continuam disponíveis para inspeção técnica explícita de arquivos, mas somente `loadRecord` retorna um registro aceito para playback normal.
+
+Testes cobrem mismatch, checksum ausente, unidade não conversível e recusa via carregamento local e manifesto preservando fonte, pipeline e relógio ativos. [Documento F02](../base/14-integridade-calibracao-wfdb.md) e [evidência funcional corrente v4](../base/14-integridade-calibracao-wfdb.functional.json) mantêm separados os snapshots históricos. Isso detecta corrupção acidental pelo checksum WFDB; não autentica proveniência nem prova integridade criptográfica. F01/F02 passam em Node/VM, mas F02 não altera a pendência de navegador/WebGL: B04 continua parcial, B05 global e B06 não aprovadas.
