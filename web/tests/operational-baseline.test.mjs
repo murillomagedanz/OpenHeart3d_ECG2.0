@@ -9,22 +9,65 @@ import { readLocalRecord } from './validation-report.mjs';
 
 const manifest = JSON.parse(readFileSync(new URL('../data/manifest.json', import.meta.url), 'utf8'));
 
-test('B04 current functional report v2 checks corrected F08 and leaves browser cases partial', async () => {
+for (const activeMode of ['synthetic', 'file']) {
+  for (const loader of ['local', 'manifest']) {
+    test(`F01 VM ${loader}: truncamento preserva fonte ${activeMode} e exibe erro explícito`, async () => {
+      const app = virtualApp();
+      if (activeMode === 'file') {
+        app.context.testRecord = (await readLocalRecord(manifest.records.find((entry) => entry.id === 'ludb/8'))).rec;
+        app.context.testMeta = { id: 'ludb/8', record: '8', dbName: 'LUDB', mainsHz: 50 };
+        app.run('useRecord(testRecord, testMeta)');
+      }
+      app.run('for (let i = 0; i < 5; i++) step()');
+      const source = app.run('state.source');
+      const pipeline = app.run('state.pipeline');
+      const time = app.run('state.signalTime');
+      const headerText = 'fixture 1 500 4\nfixture.dat 16 200';
+      const data = new Int16Array([100, 100]).buffer;
+      if (loader === 'local') {
+        app.context.testFiles = [
+          { name: 'fixture.hea', text: async () => headerText },
+          { name: 'fixture.dat', arrayBuffer: async () => data },
+        ];
+        await app.run('loadLocalFiles(testFiles)');
+      } else {
+        app.context.fetch = async (url) => ({
+          ok: true, text: async () => headerText, arrayBuffer: async () => data,
+        });
+        app.run("manifest = { records: [{ id: 'fixture', db: 'test', files: ['fixture.hea', 'fixture.dat'] }], databases: { test: { name: 'Test' } } }; ui.source.value = 'file'; ui.record.value = 'fixture'");
+        await app.run("loadManifestRecord('fixture')");
+      }
+      assert.equal(app.run('state.source'), source);
+      assert.equal(app.run('state.pipeline'), pipeline);
+      assert.equal(app.run('state.signalTime'), time);
+      assert.equal(app.run('state.mode'), activeMode);
+      assert.equal(app.elements.get('source').value, activeMode);
+      assert.equal(app.elements.get('record').value, activeMode === 'file' ? 'ludb/8' : '');
+      assert.equal(app.elements.get('ctl-synth').hidden, activeMode === 'file');
+      assert.equal(app.elements.get('ctl-record').hidden, activeMode === 'synthetic');
+      assert.equal(app.elements.get('record-info').hidden, false);
+      assert.match(app.elements.get('record-info-body').children[0].children[1].textContent, /WFDB truncado.*4.*amostras/);
+    });
+  }
+}
+
+test('B04 current functional report v3 checks corrected F01/F08 and leaves browser cases partial', async () => {
   const report = await buildFunctionalReport();
   assert.equal(report.schema, 'openheart3d.ecg.operational-functional-current');
   assert.equal(report.cases.length, 11);
   assert.equal(report.globalStatus, 'partial');
   const byId = new Map(report.cases.map((item) => [item.id, item]));
-  assert.equal(byId.get('F01').status, 'partial');
-  assert.equal(byId.get('F01').evidence.truncatedThrows, false);
-  assert.equal(byId.get('F01').evidence.truncatedReturnedSamples, 2);
+  assert.equal(report.version, 3);
+  assert.equal(byId.get('F01').status, 'passed');
+  assert.equal(byId.get('F01').evidence.truncatedThrows, true);
+  assert.equal(byId.get('F01').evidence.truncatedReturnedSamples, null);
   assert.equal(byId.get('F02').status, 'failed');
   assert.equal(byId.get('F02').evidence.checksumExpectedMismatchFlag, false);
   assert.equal(byId.get('F02').evidence.pipelineStepReturnedFiniteFilteredData, true);
   for (const id of ['F03', 'F04', 'F05', 'F06']) assert.equal(byId.get(id).status, 'passed', id);
   assert.equal(byId.get('F04').evidence.rrCrossesGap, false);
   assert.equal(byId.get('F06').evidence.fullyFiniteFilteredSteps, byId.get('F06').evidence.samples);
-  assert.equal(report.version, 2);
+  assert.equal(report.version, 3);
   assert.equal(byId.get('F08').status, 'partial');
   assert.equal(byId.get('F08').evidence.signalTimeResetOnPipelineRebuild, true);
   assert.equal(byId.get('F08').evidence.newContextFrameReceivedOldSignalTime, false);

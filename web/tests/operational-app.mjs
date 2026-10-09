@@ -5,6 +5,7 @@ import { SyntheticSource } from '../src/ecg/synth.js';
 import { SignalPipeline } from '../src/ecg/pipeline.js';
 import { OnlineScorer } from '../src/ecg/scoring.js';
 import { FileSource } from '../src/io/fileSource.js';
+import { loadRecord } from '../src/io/wfdb.js';
 import { WaveTracker } from '../src/ecg/waves.js';
 
 const mainCode = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8')
@@ -75,6 +76,7 @@ export function virtualApp() {
     OnlineScorer,
     DEFAULT_TOLERANCE_S: 0.15,
     FileSource,
+    loadRecord,
     WaveTracker,
     safeSpectrumMetadata: () => ({}),
     summarizeFilterBands: () => ({ low: {}, mains: {} }),

@@ -69,6 +69,68 @@ test('parseHeader: rejeita multi-segmento e formatos desconhecidos', () => {
 
 // --- Decodificação sintética -----------------------------------------------------
 
+function lengthHeader(format, count, channels = 1, offset = 0) {
+  return [`fixture ${channels} 500${count === null ? '' : ` ${count}`}`,
+    ...Array.from({ length: channels }, (_, i) => `fixture.dat ${format}+${offset} 200 16 0 0 0 0 channel${i}`)].join('\n');
+}
+
+for (const [format, bytesPerFour] of [[16, 8], [24, 12], [32, 16], [61, 8], [80, 4], [160, 8], [212, 6]]) {
+  test(`WFDB ${format}: rejeita comprimento declarado truncado antes de devolver prefixo`, () => {
+    const headerText = lengthHeader(format, 4);
+    for (const size of [0, Math.floor(bytesPerFour / 2), bytesPerFour - 1]) {
+      assert.throws(() => loadRecord({ headerText, files: { 'fixture.dat': new ArrayBuffer(size) } }),
+        /WFDB truncado.*4.*amostras/, `formato ${format}, ${size} bytes`);
+    }
+  });
+  test(`WFDB ${format}: offset e canais compartilhados contam apenas quadros completos`, () => {
+    const headerText = lengthHeader(format, 2, 2, 5);
+    assert.equal(loadRecord({ headerText, files: { 'fixture.dat': new ArrayBuffer(5 + bytesPerFour) } }).nSamples, 2);
+    assert.throws(() => loadRecord({ headerText, files: { 'fixture.dat': new ArrayBuffer(5 + bytesPerFour - 1) } }),
+      /WFDB truncado/);
+    assert.throws(() => loadRecord({ headerText, files: { 'fixture.dat': new ArrayBuffer(4) } }), /offset.*WFDB/i);
+  });
+  test(`WFDB ${format}: contagem zero/ausente infere quadros completos e permite cauda extra`, () => {
+    for (const count of [0, null]) {
+      // Cinco valores ADC disponíveis (212: seis, com um byte incompleto adicional),
+      // mas apenas dois quadros completos de dois canais.
+      const size = format === 212 ? 10 : bytesPerFour + bytesPerFour / 4;
+      const rec = loadRecord({ headerText: lengthHeader(format, count, 2), files: { 'fixture.dat': new ArrayBuffer(size) } });
+      assert.equal(rec.nSamples, format === 212 ? 3 : 2);
+      assert.ok(rec.signals.every((signal) => signal.length === rec.nSamples));
+    }
+    const rec = loadRecord({ headerText: lengthHeader(format, 2), files: { 'fixture.dat': new ArrayBuffer(bytesPerFour + 1) } });
+    assert.equal(rec.nSamples, 2, 'a declaração limita a saída; bytes excedentes não são rejeitados');
+  });
+}
+
+test('WFDB 212: amostra final ímpar aceita dois bytes ou par com padding não usado', () => {
+  for (const bytes of [[1, 0, 2, 3, 0], [1, 0, 2, 3, 0, 99]]) {
+    const rec = loadRecord({ headerText: lengthHeader(212, 3), files: { 'fixture.dat': new Uint8Array(bytes).buffer } });
+    assert.deepEqual(Array.from(rec.adc[0]), [1, 2, 3]);
+  }
+  assert.throws(() => loadRecord({ headerText: lengthHeader(212, 3), files: { 'fixture.dat': new ArrayBuffer(4) } }), /WFDB truncado/);
+  assert.throws(() => loadRecord({ headerText: lengthHeader(212, 1, 3), files: { 'fixture.dat': new ArrayBuffer(4) } }), /WFDB truncado/);
+  assert.equal(loadRecord({ headerText: lengthHeader(212, 0), files: { 'fixture.dat': new ArrayBuffer(5) } }).nSamples, 3);
+});
+
+test('WFDB: múltiplos arquivos não podem produzir sinais de comprimentos diferentes', () => {
+  for (const count of [4, 0, null]) {
+    const headerText = `fixture 2 500${count === null ? '' : ` ${count}`}\na.dat 16 200\nb.dat 80 200`;
+    assert.throws(() => loadRecord({ headerText, files: { 'a.dat': new ArrayBuffer(8), 'b.dat': new ArrayBuffer(2) } }),
+      count === 4 ? /WFDB truncado/ : /comprimentos.*WFDB/i);
+  }
+  const rec = loadRecord({ headerText: 'fixture 2 500 0\na.dat 16 200\nb.dat 80 200',
+    files: { 'a.dat': new ArrayBuffer(8), 'b.dat': new ArrayBuffer(4) } });
+  assert.deepEqual(rec.signals.map((signal) => signal.length), [4, 4]);
+});
+
+test('WFDB: layout compartilhado incompatível não pode validar com o primeiro canal', () => {
+  for (const spec of ['80', '16+2']) {
+    assert.throws(() => loadRecord({ headerText: `fixture 2 500 2\nfixture.dat 16 200\nfixture.dat ${spec} 200`,
+      files: { 'fixture.dat': new ArrayBuffer(8) } }), /layout.*WFDB/i);
+  }
+});
+
 test('decodeSignals: formato 212 empacota pares de 12 bits com sinal', () => {
   // amostras: sinal A = [-1, 2047], sinal B = [-2048, 5]
   const bytes = new Uint8Array(6);

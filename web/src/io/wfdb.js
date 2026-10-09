@@ -100,30 +100,44 @@ function parseSignalLine(line) {
 
 // --- Sinais ----------------------------------------------------------------
 
+function adcValueCount(format, byteLength) {
+  switch (format) {
+    case 16: case 61: case 160: return byteLength >> 1;
+    case 80: return byteLength;
+    case 24: return Math.floor(byteLength / 3);
+    case 32: return byteLength >> 2;
+    case 212: return Math.floor(byteLength / 3) * 2 + (byteLength % 3 === 2 ? 1 : 0);
+    default: throw new Error(`Formato WFDB ${format} não suportado`);
+  }
+}
+
 function readAdcStream(buffer, format, byteOffset) {
+  if (byteOffset > buffer.byteLength) {
+    throw new Error(`Offset ${byteOffset} excede o comprimento do arquivo WFDB (${buffer.byteLength} bytes)`);
+  }
   const bytes = new Uint8Array(buffer, byteOffset);
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  let n;
+  const n = adcValueCount(format, bytes.length);
   let out;
   switch (format) {
     case 16:
     case 61: {
-      n = bytes.length >> 1; out = new Int32Array(n);
+      out = new Int32Array(n);
       for (let i = 0; i < n; i++) out[i] = view.getInt16(i * 2, format === 16);
       return out;
     }
     case 160: {
-      n = bytes.length >> 1; out = new Int32Array(n);
+      out = new Int32Array(n);
       for (let i = 0; i < n; i++) out[i] = view.getUint16(i * 2, true) - 32768;
       return out;
     }
     case 80: {
-      out = new Int32Array(bytes.length);
+      out = new Int32Array(n);
       for (let i = 0; i < bytes.length; i++) out[i] = bytes[i] - 128;
       return out;
     }
     case 24: {
-      n = Math.floor(bytes.length / 3); out = new Int32Array(n);
+      out = new Int32Array(n);
       for (let i = 0; i < n; i++) {
         const v = bytes[3 * i] | (bytes[3 * i + 1] << 8) | (bytes[3 * i + 2] << 16);
         out[i] = v & 0x800000 ? v - 0x1000000 : v;
@@ -131,24 +145,26 @@ function readAdcStream(buffer, format, byteOffset) {
       return out;
     }
     case 32: {
-      n = bytes.length >> 2; out = new Int32Array(n);
+      out = new Int32Array(n);
       for (let i = 0; i < n; i++) out[i] = view.getInt32(i * 4, true);
       return out;
     }
     case 212: {
       // Pares de amostras de 12 bits em 3 bytes: b0 | (b1 & 0x0f) << 8 e b2 | (b1 & 0xf0) << 4.
-      n = Math.floor(bytes.length / 3) * 2; out = new Int32Array(n);
+      out = new Int32Array(n);
       for (let i = 0, j = 0; j < n; i += 3, j += 2) {
         let a = bytes[i] | ((bytes[i + 1] & 0x0f) << 8);
-        let b = bytes[i + 2] | ((bytes[i + 1] & 0xf0) << 4);
         if (a > 2047) a -= 4096;
-        if (b > 2047) b -= 4096;
-        out[j] = a; out[j + 1] = b;
+        out[j] = a;
+        if (j + 1 < n) {
+          let b = bytes[i + 2] | ((bytes[i + 1] & 0xf0) << 4);
+          if (b > 2047) b -= 4096;
+          out[j + 1] = b;
+        }
       }
       return out;
     }
-    default:
-      throw new Error(`Formato WFDB ${format} não suportado`);
+    default: throw new Error(`Formato WFDB ${format} não suportado`);
   }
 }
 
@@ -184,13 +200,35 @@ export function decodeSignals(header, files) {
     return { declared: s.units, scaleToMv: scale ?? 1, known: scale !== null };
   });
 
+  const groups = [];
   for (const [file, idxs] of byFile) {
     const buffer = files[file];
     if (!buffer) throw new Error(`Arquivo de sinal ausente: ${file}`);
     const first = header.signals[idxs[0]];
-    const stream = readAdcStream(buffer, first.format, first.byteOffset);
-    const perSignal = Math.floor(stream.length / idxs.length);
-    const n = header.nSamples > 0 ? Math.min(perSignal, header.nSamples) : perSignal;
+    if (idxs.some((i) => header.signals[i].format !== first.format
+      || header.signals[i].byteOffset !== first.byteOffset)) {
+      throw new Error(`Layout WFDB incompatível entre sinais do arquivo: ${file}`);
+    }
+    if (first.byteOffset > buffer.byteLength) {
+      throw new Error(`Offset ${first.byteOffset} excede o comprimento do arquivo WFDB (${buffer.byteLength} bytes)`);
+    }
+    const availableValues = adcValueCount(first.format, buffer.byteLength - first.byteOffset);
+    const availableSamples = Math.floor(availableValues / idxs.length);
+    if (header.nSamples > 0 && availableSamples < header.nSamples) {
+      throw new Error(`Arquivo WFDB truncado: ${file}; cabeçalho declara ${header.nSamples} amostras, disponíveis ${availableSamples}`);
+    }
+    groups.push({ file, idxs, availableSamples });
+  }
+
+  const inferredSamples = header.nSamples > 0 ? header.nSamples : groups[0]?.availableSamples ?? 0;
+  if (header.nSamples <= 0 && groups.some((group) => group.availableSamples !== inferredSamples)) {
+    throw new Error('Comprimentos incompatíveis entre arquivos WFDB para inferir amostras do registro');
+  }
+
+  for (const { file, idxs } of groups) {
+    const first = header.signals[idxs[0]];
+    const stream = readAdcStream(files[file], first.format, first.byteOffset);
+    const n = inferredSamples;
 
     idxs.forEach((sigIdx, k) => {
       const s = header.signals[sigIdx];

@@ -1,6 +1,6 @@
 # SDD 002 — Consolidação da base ECG e preparação multimodal
 
-**Data:** 2026-10-08. **Estado atual:** B01/B02 e B03 entregues; B04 Node/VM medido, navegador pendente; correção delimitada F08 entregue, B05 global e aceite B06 pendentes.
+**Data:** 2026-10-08. **Estado atual:** B01/B02 e B03 entregues; B04 Node/VM medido, navegador pendente; correções delimitadas F08 e F01 entregues, B05 global e aceite B06 pendentes.
 
 ## 1. Objetivo e decisão
 
@@ -110,3 +110,11 @@ Para não bloquear uma correção determinística já reproduzida pelo impedimen
 `buildPipeline` agora sincroniza `state.signalTime` com a posição da fonte antes de qualquer nova amostra: arquivo reiniciado usa posição zero; mudança de notch sintético conserva a posição corrente do gerador. Testes cobrem troca pausada, reinício, EOF, continuação sintética e ausência de QRS artificial no reset. Filtros, detector e dados continuam inalterados.
 
 F08 passa em VM, não no navegador ainda não aferido. Validação: 259 testes e benchmarks existentes aprovados. Não há autorização de B05 global/B06: F01/F02, navegador e budgets continuam pendentes. Esta exceção não generaliza permissões para alterar política de integridade ou unidades sem definição própria.
+
+## 11. Exceção delimitada: integridade de comprimento WFDB (F01)
+
+Após a investigação do navegador permanecer bloqueada, foi corrigida a aceitação de prefixos de arquivo WFDB menores que a contagem declarada no cabeçalho. A regra aplica-se quando `nSamples > 0`: cada arquivo deve fornecer todas as amostras declaradas considerando seus canais compartilhados, formato e offset, ou a carga falha explicitamente. Arquivos separados não podem resultar em comprimentos de registro incompatíveis quando a contagem é inferida.
+
+Foram preservados contagem ausente/zero (inferência por quadros completos), bytes excedentes além da contagem declarada e o armazenamento de amostra final ímpar no formato 212. Layouts incompatíveis de sinais que compartilham um arquivo e offsets além do arquivo são rejeitados. Testes exercitam os sete formatos atualmente suportados, arquivos compartilhados/separados, offsets e a retenção do estado da fonte ativa no erro de carga local/remota. Não foram alterados checksums, política para unidade desconhecida (F02), escalas, filtros, detector, dados ou experiência visual de navegador.
+
+O relatório funcional corrente v3 foi separado da evidência histórica: [documentação F01](../base/13-integridade-comprimento-wfdb.md) e [JSON determinístico](../base/13-integridade-comprimento-wfdb.functional.json). F01 passa nos ensaios Node/VM descritos; isso não encerra B04, não trata F02 e não substitui validação real no navegador. B05 global e B06 permanecem pendentes.
